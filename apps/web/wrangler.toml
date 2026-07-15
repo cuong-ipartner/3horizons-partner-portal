@@ -1,18 +1,17 @@
 # Cloudflare Pages (SPA + Functions)
 # Project name must match the Pages project in the dashboard.
 #
-# Dashboard Builds (Git):
+# Dashboard Builds (Git-connected Pages):
 #   Root directory:  apps/web
 #   Build command:   npm run build
-#   Deploy command:  (leave EMPTY — do NOT use `wrangler deploy`)
+#   Deploy command:  LEAVE EMPTY
+#     Do NOT set: npx wrangler pages deploy …
+#     Do NOT set: npx wrangler deploy
+#     Pages already publishes dist after a successful build.
 #   Build output:    dist
 #
-# CLI deploy (from apps/web):
-#   npm run build
-#   npm run cf:pages
-#   # = npx wrangler pages deploy dist --project-name=3horizons-partner-portal
-#
-# Never use `npx wrangler deploy` for this project (Workers API → Missing entry-point).
+# Local CLI only (your machine, wrangler login):
+#   npm run build && npm run cf:pages
 
 name = "3horizons-partner-portal"
 compatibility_date = "2025-01-01"

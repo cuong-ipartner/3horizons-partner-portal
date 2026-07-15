@@ -40,32 +40,34 @@ Open the preview URL and smoke-test `/`, `/login`, `/portal`, `/problems`.
 | Node version | `20` (`NODE_VERSION=20`) |
 | Functions | Auto from `apps/web/functions/` |
 
-### ❌ Build fail: `npx wrangler deploy` + Missing entry-point
+### ❌ Build fail: Deploy command + wrangler (most common)
 
 Log dạng:
 ```text
+Executing user deploy command: npx wrangler pages deploy dist --project-name=3horizons-partner-portal
+ERROR The Pages project "3horizons-partner-portal" does not exist.
+```
+hoặc:
+```text
 Executing user deploy command: npx wrangler deploy
-It seems that you have run wrangler deploy on a Pages project
-ERROR Missing entry-point to Worker script or to assets directory
+ERROR Missing entry-point to Worker script
 ```
 
-**Nguyên nhân:** Deploy command đang là **Workers** (`wrangler deploy`), không phải **Pages**.
+**Nguyên nhân:** Git build **không cần** Deploy command. Cloudflare **tự** upload `dist` sau `npm run build`.  
+Lệnh `wrangler pages deploy` trong CI dùng token account build (`a9e53b9b…`) — thường **không** thấy project (khác account / chưa tạo) → fail.
 
-**Sửa trong Cloudflare Dashboard** → project → **Settings** → **Builds**:
+**Sửa ngay (Dashboard)** → project gắn Git → **Settings → Builds**:
 
 | Field | Đúng | Sai |
 |-------|------|-----|
 | Build command | `npm run build` | — |
-| Deploy command | **(empty)** | `npx wrangler deploy` |
-| Build output | `dist` | — |
+| **Deploy command** | **(để trống / empty)** | `npx wrangler pages deploy …` |
+| Build output directory | `dist` | — |
+| Root directory | `apps/web` | — |
 
-Nếu bắt buộc dùng Wrangler làm deploy command:
+Sau đó **Retry deployment**.
 
-```bash
-npx wrangler pages deploy dist --project-name=3horizons-partner-portal
-```
-
-(hoặc `npm run cf:pages` sau khi build — chỉ khi đã ở `apps/web` và có `dist/`)
+`npx wrangler pages deploy` / `npm run deploy:cf` **chỉ** chạy trên máy local (đã `wrangler login`), **không** đặt vào Deploy command của Git.
 
 ### Fix **API error 405** (POST → static asset)
 
