@@ -54,10 +54,27 @@ function mapRow(r: DocRow): LibraryDocument {
 
 export async function listLibraryDocuments(opts?: {
   includeDrafts?: boolean
-}): Promise<{ docs: LibraryDocument[]; error: string | null }> {
+}): Promise<{ docs: LibraryDocument[]; error: string | null; needsAuth?: boolean }> {
   const sb = getSupabase()
   if (!sb || !isSupabaseAuthEnabled()) {
-    return { docs: [], error: 'Supabase chưa bật — không tải library storage.' }
+    return {
+      docs: [],
+      error:
+        'Supabase chưa cấu hình trên bản build (thiếu VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY). Set env trên Cloudflare Pages rồi redeploy.',
+      needsAuth: false,
+    }
+  }
+
+  const {
+    data: { session },
+  } = await sb.auth.getSession()
+  if (!session) {
+    return {
+      docs: [],
+      error:
+        'Cần đăng nhập Supabase Auth (không dùng “local”). Email: cuong.doan@partners.3horizons.vn — nút “Đăng nhập Supabase”.',
+      needsAuth: true,
+    }
   }
 
   let q = sb
@@ -73,7 +90,13 @@ export async function listLibraryDocuments(opts?: {
   }
 
   const { data, error } = await q
-  if (error) return { docs: [], error: error.message }
+  if (error) {
+    return {
+      docs: [],
+      error: error.message,
+      needsAuth: /JWT|auth|permission|RLS/i.test(error.message),
+    }
+  }
   return { docs: ((data ?? []) as DocRow[]).map(mapRow), error: null }
 }
 

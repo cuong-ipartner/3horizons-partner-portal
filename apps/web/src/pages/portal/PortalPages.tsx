@@ -87,13 +87,13 @@ export function DocumentsPage() {
         <PortalCard>
           <p className="text-sm text-terracotta-600">{error}</p>
           <p className="mt-2 text-xs text-espresso-500">
-            Cần đăng nhập partner (Auth) và staff đã seed/upload PDF.
+            Không dùng “Vào local”. Dùng email/password + <strong>Đăng nhập Supabase</strong>.
           </p>
           <Link
             to="/login"
             className="mt-3 inline-flex text-sm font-medium text-gold-600 hover:underline"
           >
-            Đăng nhập lại
+            Đăng nhập Supabase
           </Link>
         </PortalCard>
       ) : null}
@@ -105,7 +105,7 @@ export function DocumentsPage() {
       {!loading && !error && docs.length === 0 ? (
         <PortalEmpty
           title="Chưa có PDF trong storage"
-          body="Staff mở /admin/library → Seed 3 PDF demo hoặc Upload file. Partner đăng nhập sẽ thấy danh sách tại đây."
+          body="Thư viện trống. Staff: /admin/library → “Seed 3 PDF demo” (sau khi login staff Supabase)."
           action={
             <Link
               to="/admin/library"

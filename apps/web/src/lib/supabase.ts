@@ -70,8 +70,9 @@ export function supabaseBackendLabel(): string {
   return `Supabase — ${st.url}`
 }
 
-/** True when app should use Auth + remote tables (not seed fallback). */
+/** True when app should use Auth + remote tables (not forced seed mode). */
 export function isSupabaseAuthEnabled(): boolean {
+  // Keys present + not forced seed → use Supabase (Auth, library, projects)
   return isSupabaseConfigured() && !useSeedData()
 }
 

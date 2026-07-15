@@ -1,14 +1,18 @@
 /**
  * Runtime config for localhost demo → Supabase → Cloudflare Pages.
  * Never put service-role keys in the frontend.
+ *
+ * On Cloudflare: set VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY at build time.
+ * If those are present, Supabase is used even when VITE_DATA_MODE is omitted.
  */
 
-export type DataMode = 'seed' | 'supabase'
+export type DataMode = 'seed' | 'supabase' | 'auto'
 
 function readMode(): DataMode {
   const raw = (import.meta.env.VITE_DATA_MODE as string | undefined)?.toLowerCase()
   if (raw === 'supabase') return 'supabase'
-  return 'seed'
+  if (raw === 'seed') return 'seed'
+  return 'auto'
 }
 
 export const config = {
@@ -23,9 +27,12 @@ export function isSupabaseConfigured(): boolean {
   return Boolean(config.supabaseUrl && config.supabaseAnonKey)
 }
 
-/** True when UI should use in-memory seed (localhost demo). */
+/**
+ * True when UI should prefer pure seed/localStorage (no Supabase client).
+ * Force with VITE_DATA_MODE=seed. Otherwise enable Supabase whenever keys exist.
+ */
 export function useSeedData(): boolean {
   if (config.dataMode === 'seed') return true
-  if (config.dataMode === 'supabase' && !isSupabaseConfigured()) return true
+  if (!isSupabaseConfigured()) return true
   return false
 }
