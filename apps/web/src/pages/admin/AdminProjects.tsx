@@ -172,7 +172,7 @@ export function AdminProjects() {
         </p>
         <p className="mt-1 text-xs leading-relaxed text-espresso-500">
           {supabaseBackendLabel()}. Cần{' '}
-          <Link to="/login" className="font-medium text-portal-700 hover:underline">
+          <Link to="/admin/login" className="font-medium text-portal-700 hover:underline">
             đăng nhập staff
           </Link>{' '}
           (tài khoản thật, role staff). Partner slug = profiles.partner_slug.

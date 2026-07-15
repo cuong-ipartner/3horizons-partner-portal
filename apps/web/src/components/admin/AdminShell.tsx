@@ -42,7 +42,7 @@ export function AdminShell() {
 
   async function onLogout() {
     await logoutProduction()
-    navigate('/login')
+    navigate('/admin/login')
   }
 
   return (

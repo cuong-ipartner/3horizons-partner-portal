@@ -108,7 +108,7 @@ export async function ensureStaffAuth(): Promise<AuthResult> {
   const { data } = await sb.auth.getSession()
   const uid = data.session?.user?.id
   if (!uid) {
-    return { ok: false, error: 'Chưa đăng nhập staff. Vào /login bằng tài khoản admin.' }
+    return { ok: false, error: 'Chưa đăng nhập staff. Vào /admin/login bằng tài khoản admin.' }
   }
   const profile = await fetchProfileSession(uid)
   if (!profile || profile.role !== 'staff') {

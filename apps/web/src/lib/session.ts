@@ -7,6 +7,7 @@ const SESSION_KEY = '3h-portal-session-v1'
 const LEGACY_SESSION_KEY = '3h-demo-session-v1'
 
 export type PortalSession = {
+  /** Shell role: staff → /admin, partner → /portal */
   role: 'partner' | 'staff'
   /** Partner slug used for project membership checks */
   partnerId: string

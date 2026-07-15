@@ -9,8 +9,8 @@ type Props = {
 }
 
 /**
- * Blocks unauthenticated access. Redirects to /login with return path.
- * Staff routes reject pure partner sessions.
+ * Blocks unauthenticated access.
+ * Staff → /admin/login · Partner → /login
  */
 export function RequireAuth({ children, role = 'partner' }: Props) {
   const location = useLocation()
@@ -26,12 +26,15 @@ export function RequireAuth({ children, role = 'partner' }: Props) {
   }
 
   if (!authed) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+    const loginTo = role === 'staff' ? '/admin/login' : '/login'
+    return <Navigate to={loginTo} replace state={{ from: location.pathname }} />
   }
 
   if (role === 'staff' && session.role !== 'staff') {
+    // Partner accounts cannot open Admin OS
     return <Navigate to="/portal" replace />
   }
 
+  // Staff may also open /portal (preview partner view) after admin login
   return <>{children}</>
 }

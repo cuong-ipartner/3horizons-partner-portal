@@ -1,9 +1,10 @@
 /**
  * Production auth helpers — no demo personas.
+ * Partner login and staff/admin login are separate entry points.
  */
 
 import { getSupabase, isSupabaseAuthEnabled } from '@/lib/supabase'
-import { clearSession, saveSession, type DemoSession } from '@/lib/session'
+import { clearSession, saveSession, type PortalSession } from '@/lib/session'
 import { clearPortalAuthenticated, markPortalAuthenticated } from '@/lib/authGate'
 
 export type AppRole =
@@ -15,6 +16,8 @@ export type AppRole =
   | 'client'
 
 export type UserStatus = 'invited' | 'active' | 'suspended' | 'archived'
+
+export type LoginAudience = 'partner' | 'staff'
 
 export type ProductionProfile = {
   id: string
@@ -29,6 +32,7 @@ export type ProductionProfile = {
   verified: boolean
 }
 
+/** Roles allowed into /admin */
 const STAFF: AppRole[] = [
   'super_admin',
   'partner_manager',
@@ -40,16 +44,37 @@ export function isStaffRole(role: string) {
   return STAFF.includes(role as AppRole)
 }
 
+export function isSuperAdminRole(role: string) {
+  return role === 'super_admin'
+}
+
 function initialsFrom(name: string) {
   const parts = name.trim().split(/\s+/)
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
   return name.slice(0, 2).toUpperCase() || 'U'
 }
 
+export type LoginSuccess = {
+  ok: true
+  session: PortalSession
+  appRole: AppRole
+  isSuperAdmin: boolean
+}
+
+export type LoginFailure = { ok: false; error: string }
+
+/**
+ * Sign in with Supabase Auth and enforce audience:
+ * - partner: only non-staff roles → /portal
+ * - staff: only staff roles (incl. super_admin) → /admin
+ */
 export async function loginProduction(
   email: string,
   password: string,
-): Promise<{ ok: true; session: DemoSession } | { ok: false; error: string }> {
+  opts?: { audience?: LoginAudience },
+): Promise<LoginSuccess | LoginFailure> {
+  const audience = opts?.audience ?? 'partner'
+
   if (!isSupabaseAuthEnabled()) {
     return {
       ok: false,
@@ -73,7 +98,10 @@ export async function loginProduction(
     .eq('id', data.user.id)
     .maybeSingle()
 
-  if (pErr) return { ok: false, error: pErr.message }
+  if (pErr) {
+    await sb.auth.signOut()
+    return { ok: false, error: pErr.message }
+  }
 
   const row = profile as {
     full_name?: string
@@ -84,39 +112,76 @@ export async function loginProduction(
     email?: string
   } | null
 
-  if (row?.status === 'suspended') {
+  if (!row) {
+    await sb.auth.signOut()
+    return {
+      ok: false,
+      error: 'Chưa có hồ sơ (profiles). Liên hệ administrator để gán role.',
+    }
+  }
+
+  if (row.status === 'suspended') {
     await sb.auth.signOut()
     return { ok: false, error: 'Tài khoản đã bị tạm khóa. Liên hệ admin.' }
   }
-  if (row?.status === 'archived') {
+  if (row.status === 'archived') {
     await sb.auth.signOut()
     return { ok: false, error: 'Tài khoản đã lưu trữ. Liên hệ admin.' }
   }
 
-  // Touch last_login
+  const appRole = (row.role || 'partner') as AppRole
+  const staff = isStaffRole(appRole)
+
+  if (audience === 'staff' && !staff) {
+    await sb.auth.signOut()
+    clearSession()
+    clearPortalAuthenticated()
+    return {
+      ok: false,
+      error:
+        'Tài khoản này không có quyền Admin (cần super_admin hoặc staff role). Đăng nhập partner tại /login.',
+    }
+  }
+
+  if (audience === 'partner' && staff) {
+    await sb.auth.signOut()
+    clearSession()
+    clearPortalAuthenticated()
+    return {
+      ok: false,
+      error:
+        'Tài khoản staff/admin. Vui lòng đăng nhập tại /admin/login (không dùng cổng partner).',
+    }
+  }
+
   await sb
     .from('profiles')
-    .update({ last_login_at: new Date().toISOString(), status: row?.status || 'active' })
+    .update({ last_login_at: new Date().toISOString(), status: row.status || 'active' })
     .eq('id', data.user.id)
 
-  const role = (row?.role || 'partner') as AppRole
-  const session: DemoSession = {
-    role: isStaffRole(role) ? 'staff' : 'partner',
-    partnerId: row?.partner_slug || (isStaffRole(role) ? 'staff' : 'partner'),
-    name: row?.full_name || data.user.email?.split('@')[0] || 'User',
-    email: row?.email || data.user.email || email,
-    initials: row?.initials || initialsFrom(row?.full_name || data.user.email || 'U'),
+  const session: PortalSession = {
+    role: staff ? 'staff' : 'partner',
+    partnerId: row.partner_slug || (staff ? 'staff' : 'partner'),
+    name: row.full_name || data.user.email?.split('@')[0] || 'User',
+    email: row.email || data.user.email || email,
+    initials: row.initials || initialsFrom(row.full_name || data.user.email || 'U'),
   }
   saveSession(session)
   markPortalAuthenticated()
-  return { ok: true, session }
+  return {
+    ok: true,
+    session,
+    appRole,
+    isSuperAdmin: isSuperAdminRole(appRole),
+  }
 }
 
-export async function requestPasswordReset(email: string) {
+export async function requestPasswordReset(email: string, redirectPath = '/login') {
   const sb = getSupabase()
   if (!sb) return 'No client'
+  const path = redirectPath.startsWith('/') ? redirectPath : `/${redirectPath}`
   const { error } = await sb.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-    redirectTo: `${window.location.origin}/login`,
+    redirectTo: `${window.location.origin}${path}`,
   })
   return error?.message ?? null
 }

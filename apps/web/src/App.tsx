@@ -16,7 +16,7 @@ import {
 } from '@/pages/WorkspacePages'
 import { InsightsIndexPage, InsightDetailPage } from '@/pages/InsightsPage'
 import { PartnerOnboardingPage } from '@/pages/PartnerOnboardingPage'
-import { LoginPage } from '@/pages/LoginPage'
+import { AdminLoginPage, LoginPage } from '@/pages/LoginPage'
 import { RequireAuth } from '@/components/auth/RequireAuth'
 import { DashboardHome } from '@/pages/portal/DashboardHome'
 import { ProjectDetailPage } from '@/pages/portal/ProjectDetailPage'
@@ -47,7 +47,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="login" element={<LoginPage />} />
+        <Route path="login" element={<LoginPage audience="partner" />} />
+        <Route path="admin/login" element={<AdminLoginPage />} />
 
         <Route
           path="admin"

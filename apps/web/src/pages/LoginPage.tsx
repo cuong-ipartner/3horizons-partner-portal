@@ -1,12 +1,22 @@
 import { useState, type FormEvent } from 'react'
-import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
+import { Eye, EyeOff, Lock, Mail, Shield } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
-import { loginProduction, requestPasswordReset } from '@/lib/production-auth'
+import {
+  loginProduction,
+  requestPasswordReset,
+  type LoginAudience,
+} from '@/lib/production-auth'
 import { isSupabaseAuthEnabled, supabaseBackendLabel } from '@/lib/supabase'
 import { cn } from '@/lib/cn'
 
-export function LoginPage() {
+type Props = {
+  /** partner = /login · staff = /admin/login */
+  audience?: LoginAudience
+}
+
+export function LoginPage({ audience = 'partner' }: Props) {
+  const isAdmin = audience === 'staff'
   const navigate = useNavigate()
   const location = useLocation()
   const fromPath =
@@ -29,21 +39,30 @@ export function LoginPage() {
     setLoading(true)
     setError(null)
     setInfo(null)
-    const res = await loginProduction(email, password)
+    const res = await loginProduction(email, password, { audience })
     setLoading(false)
     if (!res.ok) {
       setError(res.error)
       return
     }
-    setInfo('Đăng nhập thành công…')
-    const dest =
-      res.session.role === 'staff'
-        ? fromPath?.startsWith('/admin')
+
+    if (isAdmin) {
+      setInfo(
+        res.isSuperAdmin
+          ? 'Đăng nhập Super Admin thành công…'
+          : `Đăng nhập staff (${res.appRole}) thành công…`,
+      )
+      const dest =
+        fromPath?.startsWith('/admin') && !fromPath.startsWith('/admin/login')
           ? fromPath
           : '/admin'
-        : fromPath?.startsWith('/portal')
-          ? fromPath
-          : '/portal'
+      navigate(dest)
+      return
+    }
+
+    setInfo('Đăng nhập partner thành công…')
+    const dest =
+      fromPath?.startsWith('/portal') ? fromPath : '/portal'
     navigate(dest)
   }
 
@@ -54,33 +73,48 @@ export function LoginPage() {
     }
     setLoading(true)
     setError(null)
-    const err = await requestPasswordReset(email)
+    const err = await requestPasswordReset(email, isAdmin ? '/admin/login' : '/login')
     setLoading(false)
     if (err) setError(err)
     else setInfo('Nếu email tồn tại, bạn sẽ nhận hướng dẫn đặt lại mật khẩu.')
   }
 
+  const bg = isAdmin
+    ? 'bg-[linear-gradient(145deg,#0f172a_0%,#1e293b_40%,#0f172a_100%)]'
+    : 'bg-[linear-gradient(145deg,#1a2348_0%,#2f3d72_38%,#4a3d8c_72%,#5b4b9a_100%)]'
+
   return (
     <div className="relative min-h-screen overflow-hidden">
-      <div className="absolute inset-0 bg-[linear-gradient(145deg,#1a2348_0%,#2f3d72_38%,#4a3d8c_72%,#5b4b9a_100%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_20%,rgba(255,255,255,0.14),transparent_45%)]" />
+      <div className={cn('absolute inset-0', bg)} />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_20%,rgba(255,255,255,0.12),transparent_45%)]" />
 
       <div className="relative z-10 px-6 py-6 sm:px-8">
-        <Logo to="/" variant="light" subtitle="Cổng đối tác" />
+        <Logo
+          to="/"
+          variant="light"
+          subtitle={isAdmin ? 'Admin Operating System' : 'Cổng đối tác'}
+        />
       </div>
 
       <div className="relative z-10 flex min-h-[calc(100vh-5.5rem)] items-center justify-center px-4 pb-16">
         <div className="w-full max-w-[420px]">
           <div className="rounded-2xl border border-white/20 bg-white/95 p-8 shadow-[0_24px_64px_rgba(15,20,45,0.35)] backdrop-blur-sm sm:p-9">
             <div className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-espresso-900 text-sm font-bold text-cream-100 shadow-md">
-                3H
+              <div
+                className={cn(
+                  'mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl text-sm font-bold text-cream-100 shadow-md',
+                  isAdmin ? 'bg-slate-900' : 'bg-espresso-900',
+                )}
+              >
+                {isAdmin ? <Shield className="h-5 w-5" strokeWidth={1.75} /> : '3H'}
               </div>
               <h1 className="font-display text-xl font-semibold tracking-tight text-espresso-900 sm:text-2xl">
-                Đăng nhập
+                {isAdmin ? 'Đăng nhập Admin' : 'Đăng nhập Partner'}
               </h1>
               <p className="mt-2 text-sm text-espresso-500">
-                Tài khoản được cấp bởi 3HORIZONS — không dùng tài khoản demo.
+                {isAdmin
+                  ? 'Dành cho super_admin và staff 3HORIZONS — quản trị users, documents, projects.'
+                  : 'Cổng workspace đối tác — tài khoản được 3HORIZONS mời.'}
               </p>
               <p className="mt-2 text-[11px] text-portal-700">{supabaseBackendLabel()}</p>
             </div>
@@ -116,7 +150,7 @@ export function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="ban@congty.com"
+                    placeholder={isAdmin ? 'admin@3horizons.vn' : 'ban@congty.com'}
                     className={fieldClass}
                   />
                 </div>
@@ -161,16 +195,39 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || !supabaseOn}
-                className="mt-2 flex h-11 w-full items-center justify-center rounded-xl bg-espresso-900 text-sm font-semibold text-cream-100 shadow-md transition hover:bg-espresso-800 disabled:opacity-70"
+                className={cn(
+                  'mt-2 flex h-11 w-full items-center justify-center rounded-xl text-sm font-semibold text-cream-100 shadow-md transition disabled:opacity-70',
+                  isAdmin
+                    ? 'bg-slate-900 hover:bg-slate-800'
+                    : 'bg-espresso-900 hover:bg-espresso-800',
+                )}
               >
-                {loading ? 'Đang đăng nhập…' : 'Đăng nhập'}
+                {loading
+                  ? 'Đang đăng nhập…'
+                  : isAdmin
+                    ? 'Vào Admin OS'
+                    : 'Vào Partner Portal'}
               </button>
             </form>
 
             <p className="mt-6 text-center text-xs text-espresso-500">
-              Chưa có tài khoản? Liên hệ administrator 3HORIZONS để được mời.
+              {isAdmin ? (
+                <>
+                  Cổng đối tác?{' '}
+                  <Link to="/login" className="font-medium text-portal-700 hover:underline">
+                    Đăng nhập Partner
+                  </Link>
+                </>
+              ) : (
+                <>
+                  Nhân sự 3HORIZONS?{' '}
+                  <Link to="/admin/login" className="font-medium text-portal-700 hover:underline">
+                    Đăng nhập Admin
+                  </Link>
+                </>
+              )}
               <br />
-              <Link to="/" className="font-medium text-portal-700 hover:underline">
+              <Link to="/" className="mt-1 inline-block font-medium text-portal-700 hover:underline">
                 Về trang chủ
               </Link>
             </p>
@@ -179,6 +236,10 @@ export function LoginPage() {
       </div>
     </div>
   )
+}
+
+export function AdminLoginPage() {
+  return <LoginPage audience="staff" />
 }
 
 const fieldClass =
