@@ -92,7 +92,7 @@ See `apps/web/.env.example`.
 
 ### Phase 3 — Cloudflare Pages + domain
 
-- Create Pages project `partners-3horizons`  
+- Create Pages project `3horizons-partner-portal`  
 - Build: `apps/web` → `npm run build` → `dist`  
 - SPA: `wrangler.toml` `not_found_handling = single-page-application`  
 - Custom domain: `partners.3horizons.vn`  

@@ -5,11 +5,11 @@
 #   npm run build
 #   npm run preview
 #
-# Deploy (when ready — confirm with user first):
+# Deploy:
 #   npm run build
-#   npx wrangler pages deploy dist --project-name=partners-3horizons
+#   npx wrangler pages deploy dist --project-name=3horizons-partner-portal
 
-name = "partners-3horizons"
+name = "3horizons-partner-portal"
 compatibility_date = "2025-01-01"
 
 [assets]

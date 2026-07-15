@@ -32,7 +32,7 @@ Open the preview URL and smoke-test `/`, `/login`, `/portal`, `/problems`.
 
 | Setting | Value |
 |---------|--------|
-| Project name | `partners-3horizons` |
+| Project name | `3horizons-partner-portal` |
 | Root directory | `apps/web` (if monorepo root is client folder) or repo root path as applicable |
 | Build command | `npm run build` |
 | Build output | `dist` |
@@ -52,7 +52,7 @@ Open the preview URL and smoke-test `/`, `/login`, `/portal`, `/problems`.
 ```powershell
 cd apps\web
 npm run build
-npx wrangler pages deploy dist --project-name=partners-3horizons
+npx wrangler pages deploy dist --project-name=3horizons-partner-portal
 ```
 
 `wrangler.toml` already sets SPA `not_found_handling`.

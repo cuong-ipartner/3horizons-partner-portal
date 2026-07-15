@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview --host",
-    "deploy:cf": "npm run build && npx wrangler pages deploy dist --project-name=partners-3horizons"
+    "deploy:cf": "npm run build && npx wrangler pages deploy dist --project-name=3horizons-partner-portal"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.3",
