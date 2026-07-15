@@ -1,13 +1,16 @@
 /**
  * Cloudflare Pages Function — Admin user lifecycle (service role).
- * Secrets: SUPABASE_SERVICE_ROLE_KEY, VITE_SUPABASE_URL (or SUPABASE_URL)
+ * Secrets: SUPABASE_SERVICE_ROLE_KEY (+ optional SUPABASE_URL / VITE_SUPABASE_URL)
  */
 
-type Env = {
-  SUPABASE_SERVICE_ROLE_KEY?: string
-  SUPABASE_URL?: string
-  VITE_SUPABASE_URL?: string
-}
+import {
+  envPresence,
+  resolveServiceRole,
+  resolveSupabaseUrl,
+  type SupabaseEnv,
+} from '../_lib/supabaseEnv'
+
+type Env = SupabaseEnv
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
@@ -20,14 +23,16 @@ function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: jsonHeaders })
 }
 
-function supabaseUrl(env: Env) {
-  return env.SUPABASE_URL || env.VITE_SUPABASE_URL || ''
-}
-
 async function requireStaff(env: Env, authHeader: string | null) {
-  const url = supabaseUrl(env)
-  const service = env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !service) return { error: 'Server missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY', status: 503 }
+  const url = resolveSupabaseUrl(env)
+  const service = resolveServiceRole(env)
+  if (!url || !service) {
+    return {
+      error: 'Server missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY',
+      status: 503,
+      env: envPresence(env),
+    }
+  }
 
   if (!authHeader?.startsWith('Bearer ')) return { error: 'Unauthorized', status: 401 }
   const jwt = authHeader.slice(7)
@@ -91,7 +96,12 @@ export async function onRequestOptions() {
 
 export async function onRequestGet(context: { request: Request; env: Env }) {
   const gate = await requireStaff(context.env, context.request.headers.get('Authorization'))
-  if ('error' in gate && gate.error) return json({ error: gate.error }, gate.status)
+  if ('error' in gate && gate.error) {
+    return json(
+      { error: gate.error, env: 'env' in gate ? gate.env : undefined },
+      gate.status,
+    )
+  }
 
   const { url, service } = gate as {
     url: string
@@ -110,7 +120,12 @@ export async function onRequestGet(context: { request: Request; env: Env }) {
 
 export async function onRequestPost(context: { request: Request; env: Env }) {
   const gate = await requireStaff(context.env, context.request.headers.get('Authorization'))
-  if ('error' in gate && gate.error) return json({ error: gate.error }, gate.status)
+  if ('error' in gate && gate.error) {
+    return json(
+      { error: gate.error, env: 'env' in gate ? gate.env : undefined },
+      gate.status,
+    )
+  }
 
   const { url, service, user, profile } = gate as {
     url: string

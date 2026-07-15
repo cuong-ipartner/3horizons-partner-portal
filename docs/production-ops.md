@@ -23,8 +23,24 @@ Portal is production-oriented:
 
 | Variable | Purpose |
 |----------|---------|
-| `SUPABASE_SERVICE_ROLE_KEY` | Admin invite, ban, cleanup |
-| `SUPABASE_URL` or `VITE_SUPABASE_URL` | Same project URL for Functions |
+| `SUPABASE_SERVICE_ROLE_KEY` | Admin invite, ban, cleanup (**required**, Encrypt) |
+| `SUPABASE_URL` or `VITE_SUPABASE_URL` | Same project URL for Functions (optional; code falls back to project URL) |
+
+**Important (CF Pages):**
+
+1. Set under project **Settings → Variables and Secrets** for **Production** (and Preview if needed).
+2. Use **exact** name: `SUPABASE_SERVICE_ROLE_KEY` (not `SERVICE_ROLE`, not build-only note alone).
+3. After adding/changing secrets → **Deployments → Retry deployment** (or push a commit). Runtime may not pick new secrets until redeploy.
+4. Verify: open `https://<site>/api/admin/health`  
+   - `ok: true` and `resolved_service_role: true` → Functions see the secret  
+   - `ok: false` → secret still not visible to Functions
+5. CLI alternative (from `apps/web`):
+   ```powershell
+   npx wrangler pages secret put SUPABASE_SERVICE_ROLE_KEY --project-name=3horizons-partner-portal
+   # paste service_role JWT when prompted
+   npx wrangler pages secret put SUPABASE_URL --project-name=3horizons-partner-portal
+   # paste https://twrtfsykittmfrhkjxkn.supabase.co
+   ```
 
 Never put service role in Vite client code.
 

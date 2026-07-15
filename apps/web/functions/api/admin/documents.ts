@@ -1,13 +1,16 @@
 /**
  * Admin document operations that need service role (storage cleanup).
- * Secrets: SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL | VITE_SUPABASE_URL
+ * Secrets: SUPABASE_SERVICE_ROLE_KEY (+ optional SUPABASE_URL)
  */
 
-type Env = {
-  SUPABASE_SERVICE_ROLE_KEY?: string
-  SUPABASE_URL?: string
-  VITE_SUPABASE_URL?: string
-}
+import {
+  envPresence,
+  resolveServiceRole,
+  resolveSupabaseUrl,
+  type SupabaseEnv,
+} from '../_lib/supabaseEnv'
+
+type Env = SupabaseEnv
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
@@ -25,9 +28,15 @@ export async function onRequestOptions() {
 }
 
 async function requireStaff(env: Env, authHeader: string | null) {
-  const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL || ''
-  const service = env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !service) return { error: 'Missing server secrets', status: 503 as const }
+  const url = resolveSupabaseUrl(env)
+  const service = resolveServiceRole(env)
+  if (!url || !service) {
+    return {
+      error: 'Missing server secrets',
+      status: 503 as const,
+      env: envPresence(env),
+    }
+  }
   if (!authHeader?.startsWith('Bearer ')) return { error: 'Unauthorized', status: 401 as const }
   const jwt = authHeader.slice(7)
   const userRes = await fetch(`${url}/auth/v1/user`, {
@@ -50,7 +59,12 @@ async function requireStaff(env: Env, authHeader: string | null) {
 
 export async function onRequestPost(context: { request: Request; env: Env }) {
   const gate = await requireStaff(context.env, context.request.headers.get('Authorization'))
-  if ('error' in gate) return json({ error: gate.error }, gate.status)
+  if ('error' in gate) {
+    return json(
+      { error: gate.error, env: 'env' in gate ? gate.env : undefined },
+      gate.status,
+    )
+  }
   const { url, service, user } = gate
 
   const body = (await context.request.json().catch(() => ({}))) as {
