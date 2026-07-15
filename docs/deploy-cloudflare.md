@@ -83,14 +83,23 @@ Checklist:
 4. Health check: `GET https://<site>/api/nexus` → JSON `{ ok: true }` (không HTML).
 5. `POST /api/nexus` cần secret `XAI_API_KEY` (thiếu key → 503 demo, không phải 405).
 
-**Environment variables (Production):**
+**Environment variables (Production + Preview)** — must apply to **Build** (Vite embeds at build time):
 
 | Name | Value |
 |------|--------|
 | `VITE_DATA_MODE` | `supabase` |
-| `VITE_SITE_URL` | `https://partners.3horizons.vn` |
-| `VITE_SUPABASE_URL` | from Supabase |
-| `VITE_SUPABASE_ANON_KEY` | from Supabase |
+| `VITE_SUPABASE_URL` | `https://twrtfsykittmfrhkjxkn.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Supabase → Settings → API → **anon public** (not service_role) |
+| `VITE_SITE_URL` | `https://partners.3horizons.vn` (no trailing slash preferred) |
+
+Optional server secrets (Pages Functions, not `VITE_`):
+
+| Name | Value |
+|------|--------|
+| `XAI_API_KEY` | Nexus live |
+| `PROXYCURL_API_KEY` | LinkedIn enrich |
+
+After changing env → **Retry deployment** (rebuild required).
 
 ### Option B — Wrangler CLI
 
