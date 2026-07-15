@@ -1,0 +1,128 @@
+@import 'tailwindcss';
+
+@theme {
+  /* Body: Inter · Heading: Be Vietnam Pro (tiếng Việt) */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Be Vietnam Pro', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* 3HORIZONS premium palette — cream, espresso, terracotta */
+  --color-cream-50: #fdfbf7;
+  --color-cream-100: #f7f3ec;
+  --color-cream-200: #efe6d8;
+  --color-cream-300: #e2d4bf;
+  --color-sand: #d4c4a8;
+  --color-espresso-900: #1c1610;
+  --color-espresso-800: #2c2416;
+  --color-espresso-700: #3d3429;
+  --color-espresso-600: #5c4f3d;
+  --color-espresso-500: #7a6a55;
+  --color-navy-900: #1a2332;
+  --color-navy-800: #243044;
+  --color-terracotta-600: #b4532a;
+  --color-terracotta-500: #c45c26;
+  --color-terracotta-400: #d4783f;
+  --color-gold-600: #9a7b2f;
+  --color-gold-500: #b8943f;
+  --color-success: #3d6b4f;
+  --color-warning: #a67c2d;
+  --color-info: #3d5a73;
+
+  /* Portal / login — enterprise blue–violet (Bizfly-inspired structure, 3H tone) */
+  --color-portal-50: #f4f6fb;
+  --color-portal-100: #e8edf7;
+  --color-portal-200: #d0daf0;
+  --color-portal-600: #3d4f8c;
+  --color-portal-700: #2f3d72;
+  --color-portal-800: #24305c;
+  --color-portal-900: #1a2348;
+  --color-portal-violet: #5b4b9a;
+  --color-portal-violet-deep: #3f2f78;
+
+  --shadow-soft: 0 1px 2px rgb(28 22 16 / 0.04), 0 8px 24px rgb(28 22 16 / 0.06);
+  --shadow-card: 0 1px 1px rgb(28 22 16 / 0.03), 0 12px 32px rgb(28 22 16 / 0.07);
+  --radius-card: 1.25rem;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-cream-100 text-espresso-800 font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-terracotta-500) 25%, transparent);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Phase C — brand-safe paper depth */
+  .paper-texture {
+    background-color: var(--color-cream-50);
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgb(184 148 63 / 0.04), transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgb(28 22 16 / 0.03), transparent 45%),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  }
+
+  .animate-portal-fade {
+    animation: portal-fade 0.2s ease-out both;
+  }
+
+  .animate-portal-rise {
+    animation: portal-rise 0.28s ease-out both;
+  }
+
+  .animate-portal-in {
+    animation: portal-rise 0.35s ease-out both;
+  }
+}
+
+@keyframes portal-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes portal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

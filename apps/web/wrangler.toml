@@ -1,0 +1,18 @@
+# Cloudflare Pages / Workers Static Assets (SPA)
+# Target domain: partners.3horizons.vn
+#
+# Local preview of production build:
+#   npm run build
+#   npm run preview
+#
+# Deploy (when ready — confirm with user first):
+#   npm run build
+#   npx wrangler pages deploy dist --project-name=partners-3horizons
+
+name = "partners-3horizons"
+compatibility_date = "2025-01-01"
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+html_handling = "auto-trailing-slash"

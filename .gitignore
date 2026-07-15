@@ -1,0 +1,26 @@
+# deps
+node_modules/
+**/node_modules/
+
+# build
+dist/
+**/dist/
+.wrangler/
+.turbo/
+
+# env / secrets
+.env
+.env.local
+.env.*.local
+!**/.env.example
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# supabase local (if used later)
+supabase/.branches
+supabase/.temp
