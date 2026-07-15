@@ -35,9 +35,37 @@ Open the preview URL and smoke-test `/`, `/login`, `/portal`, `/problems`.
 | Project name | `3horizons-partner-portal` |
 | Root directory | `apps/web` |
 | Build command | `npm run build` |
-| Build output | `dist` |
-| Node version | `20` |
-| Functions | Auto from `apps/web/functions/` (POST `/api/nexus`, `/api/social-enrich`) |
+| Build output directory | `dist` |
+| **Deploy command** | **Để trống** (Pages tự publish `dist`) |
+| Node version | `20` (`NODE_VERSION=20`) |
+| Functions | Auto from `apps/web/functions/` |
+
+### ❌ Build fail: `npx wrangler deploy` + Missing entry-point
+
+Log dạng:
+```text
+Executing user deploy command: npx wrangler deploy
+It seems that you have run wrangler deploy on a Pages project
+ERROR Missing entry-point to Worker script or to assets directory
+```
+
+**Nguyên nhân:** Deploy command đang là **Workers** (`wrangler deploy`), không phải **Pages**.
+
+**Sửa trong Cloudflare Dashboard** → project → **Settings** → **Builds**:
+
+| Field | Đúng | Sai |
+|-------|------|-----|
+| Build command | `npm run build` | — |
+| Deploy command | **(empty)** | `npx wrangler deploy` |
+| Build output | `dist` | — |
+
+Nếu bắt buộc dùng Wrangler làm deploy command:
+
+```bash
+npx wrangler pages deploy dist --project-name=3horizons-partner-portal
+```
+
+(hoặc `npm run cf:pages` sau khi build — chỉ khi đã ở `apps/web` và có `dist/`)
 
 ### Fix **API error 405** (POST → static asset)
 
