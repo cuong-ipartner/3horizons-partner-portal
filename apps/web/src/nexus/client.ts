@@ -44,6 +44,7 @@ export async function sendNexusMessage(opts: {
 
   try {
     const res = await fetch('/api/nexus', {
+      // CF Pages: must hit Functions; 405 = static asset (misconfigured deploy)
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -62,10 +63,14 @@ export async function sendNexusMessage(opts: {
 
     if (!res.ok) {
       const errText = await res.text().catch(() => res.statusText)
+      const hint405 =
+        res.status === 405
+          ? ' (Cloudflare: POST /api/nexus chưa vào Pages Function — check Root=apps/web, redeploy, GET /api/nexus phải trả JSON)'
+          : ''
       return {
         content: simplifyNexusText(nexusDemoReply(opts.messages, opts.routePath)),
         mode: 'demo',
-        error: `API error ${res.status}: ${errText.slice(0, 120)}`,
+        error: `API error ${res.status}: ${errText.slice(0, 80)}${hint405}`,
       }
     }
 

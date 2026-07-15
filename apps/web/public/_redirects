@@ -1,0 +1,5 @@
+# SPA client routes (GET). Pages Functions for /api/* take precedence when deployed.
+# If you still see POST /api/* → 405, Functions are not running (wrong root / no redeploy).
+/*
+  /index.html
+  200

@@ -1,9 +1,34 @@
 /**
- * Cloudflare Pages Function — POST /api/nexus
- * Set secret: XAI_API_KEY in Cloudflare Pages environment.
+ * Cloudflare Pages Function — /api/nexus
+ * Secret: XAI_API_KEY (Pages → Settings → Environment variables)
  */
 
 type ChatMessage = { role: string; content: string }
+
+const jsonHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: jsonHeaders })
+}
+
+/** Health check — proves Functions are wired (not static 405). */
+export async function onRequestGet() {
+  return json({
+    ok: true,
+    service: 'nexus',
+    methods: ['POST'],
+    hint: 'POST { messages: [...] } with XAI_API_KEY set for live Grok.',
+  })
+}
+
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: jsonHeaders })
+}
 
 export async function onRequestPost(context: {
   request: Request
@@ -11,14 +36,14 @@ export async function onRequestPost(context: {
 }): Promise<Response> {
   const key = context.env.XAI_API_KEY
   if (!key) {
-    return Response.json({ demo: true, error: 'XAI_API_KEY not set' }, { status: 503 })
+    return json({ demo: true, error: 'XAI_API_KEY not set' }, 503)
   }
 
   let body: { messages?: ChatMessage[]; model?: string }
   try {
     body = (await context.request.json()) as typeof body
   } catch {
-    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+    return json({ error: 'Invalid JSON' }, 400)
   }
 
   const model = body.model || 'grok-4.5'
@@ -39,10 +64,7 @@ export async function onRequestPost(context: {
 
   if (!xaiRes.ok) {
     const errText = await xaiRes.text()
-    return new Response(JSON.stringify({ error: errText }), {
-      status: xaiRes.status,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return json({ error: errText }, xaiRes.status)
   }
 
   const data = (await xaiRes.json()) as {
@@ -50,7 +72,7 @@ export async function onRequestPost(context: {
     model?: string
   }
 
-  return Response.json({
+  return json({
     content: data.choices?.[0]?.message?.content ?? '',
     model: data.model || model,
   })

@@ -1,18 +1,15 @@
-# Cloudflare Pages / Workers Static Assets (SPA)
-# Target domain: partners.3horizons.vn
+# Cloudflare Pages (SPA + Functions)
+# Project name must match the Pages project in the dashboard.
 #
-# Local preview of production build:
-#   npm run build
-#   npm run preview
+# Build (CF dashboard / local):
+#   Root directory: apps/web
+#   Build command:  npm run build
+#   Output dir:     dist
 #
-# Deploy:
+# Deploy CLI (from apps/web — keeps functions/ next to dist):
 #   npm run build
 #   npx wrangler pages deploy dist --project-name=3horizons-partner-portal
 
 name = "3horizons-partner-portal"
 compatibility_date = "2025-01-01"
-
-[assets]
-directory = "./dist"
-not_found_handling = "single-page-application"
-html_handling = "auto-trailing-slash"
+pages_build_output_dir = "dist"

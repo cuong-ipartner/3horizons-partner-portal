@@ -33,10 +33,27 @@ Open the preview URL and smoke-test `/`, `/login`, `/portal`, `/problems`.
 | Setting | Value |
 |---------|--------|
 | Project name | `3horizons-partner-portal` |
-| Root directory | `apps/web` (if monorepo root is client folder) or repo root path as applicable |
+| Root directory | `apps/web` |
 | Build command | `npm run build` |
 | Build output | `dist` |
 | Node version | `20` |
+| Functions | Auto from `apps/web/functions/` (POST `/api/nexus`, `/api/social-enrich`) |
+
+### Fix **API error 405** (POST → static asset)
+
+405 = request **không** vào Pages Function (static server không nhận POST).
+
+Checklist:
+1. Root directory **phải** là `apps/web` (có thư mục `functions/`).
+2. Redeploy sau khi có `public/_routes.json` (include `/api/*`).
+3. CLI deploy từ `apps/web` (không chỉ upload `dist` rời functions):
+   ```powershell
+   cd apps\web
+   npm run build
+   npx wrangler pages deploy dist --project-name=3horizons-partner-portal
+   ```
+4. Health check: `GET https://<site>/api/nexus` → JSON `{ ok: true }` (không HTML).
+5. `POST /api/nexus` cần secret `XAI_API_KEY` (thiếu key → 503 demo, không phải 405).
 
 **Environment variables (Production):**
 

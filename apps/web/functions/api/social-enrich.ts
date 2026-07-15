@@ -73,6 +73,30 @@ async function enrichViaProxycurl(linkedinUrl: string, key: string) {
   }
 }
 
+const jsonHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: jsonHeaders })
+}
+
+export async function onRequestGet() {
+  return json({
+    ok: true,
+    service: 'social-enrich',
+    methods: ['POST'],
+    hint: 'POST { url, source } — LinkedIn via PROXYCURL_API_KEY when set.',
+  })
+}
+
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: jsonHeaders })
+}
+
 export async function onRequestPost(context: {
   request: Request
   env: Env
@@ -82,23 +106,23 @@ export async function onRequestPost(context: {
     source?: string
   }
   const rawUrl = String(body.url || '').trim()
-  if (!rawUrl) return Response.json({ error: 'Missing url' }, { status: 400 })
+  if (!rawUrl) return json({ error: 'Missing url' }, 400)
   const normalized = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`
 
   if (/linkedin\.com/i.test(normalized)) {
     const handle = parseLinkedInHandle(normalized)
     if (!handle) {
-      return Response.json(
+      return json(
         { error: 'URL LinkedIn không hợp lệ. Dùng: https://www.linkedin.com/in/ten-ban' },
-        { status: 400 },
+        400,
       )
     }
     if (context.env.PROXYCURL_API_KEY) {
       try {
         const data = await enrichViaProxycurl(normalized, context.env.PROXYCURL_API_KEY)
-        return Response.json(data)
+        return json(data)
       } catch (e) {
-        return Response.json({
+        return json({
           fullName: nameFromHandle(handle),
           title: '',
           company: '',
@@ -117,7 +141,7 @@ export async function onRequestPost(context: {
         })
       }
     }
-    return Response.json({
+    return json({
       fullName: nameFromHandle(handle),
       title: '',
       company: '',
@@ -139,5 +163,5 @@ export async function onRequestPost(context: {
     })
   }
 
-  return Response.json({ error: 'Chỉ hỗ trợ LinkedIn/Facebook URL công khai.' }, { status: 400 })
+  return json({ error: 'Chỉ hỗ trợ LinkedIn/Facebook URL công khai.' }, 400)
 }
