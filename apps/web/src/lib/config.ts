@@ -29,10 +29,10 @@ export function isSupabaseConfigured(): boolean {
 
 /**
  * True when UI should prefer pure seed/localStorage (no Supabase client).
- * Force with VITE_DATA_MODE=seed. Otherwise enable Supabase whenever keys exist.
+ * If URL + anon key are baked into the build, always use Supabase
+ * (avoids CF mis-set VITE_DATA_MODE=seed blocking library/auth).
  */
 export function useSeedData(): boolean {
-  if (config.dataMode === 'seed') return true
-  if (!isSupabaseConfigured()) return true
-  return false
+  if (isSupabaseConfigured()) return false
+  return true
 }
