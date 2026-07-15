@@ -20,9 +20,7 @@ function stTone(s: AdminMatchItem['status']) {
 
 export function AdminMatches() {
   const [status, setStatus] = useState('')
-  const [selected, setSelected] = useState<AdminMatchItem | null>(
-    adminMatches.find((m) => m.status === 'human_review') ?? adminMatches[0],
-  )
+  const [selected, setSelected] = useState<AdminMatchItem | null>(null)
   const [toast, setToast] = useState('')
 
   const rows = useMemo(() => {
@@ -101,6 +99,13 @@ export function AdminMatches() {
                   <Td className="text-xs">{m.owner}</Td>
                 </tr>
               ))}
+              {!rows.length ? (
+                <tr>
+                  <Td className="text-sm text-espresso-500">
+                    Chưa có request. Queue sẽ hiện khi client gửi match (production).
+                  </Td>
+                </tr>
+              ) : null}
             </tbody>
           </AdminTable>
         </div>

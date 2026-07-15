@@ -158,6 +158,13 @@ export function AdminPartners() {
                   <Td className="text-xs text-espresso-500">{p.submittedAt}</Td>
                 </tr>
               ))}
+              {!rows.length ? (
+                <tr>
+                  <Td className="text-sm text-espresso-500">
+                    Chưa có hồ sơ đối tác. Partners từ form /join sẽ xuất hiện tại đây.
+                  </Td>
+                </tr>
+              ) : null}
             </tbody>
           </AdminTable>
         </div>

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Activity,
@@ -25,15 +25,16 @@ import {
   PortalSectionLabel,
   PortalStatusPill,
 } from '@/components/portal/PortalUi'
+import { formatFileSize } from '@/data/library-store'
 import {
-  formatFileSize,
-  getLibrarySignedUrl,
-  type LibraryDocument,
-  useLibraryDocuments,
-} from '@/data/library-store'
+  ECOSYSTEM_LAYERS,
+  getDocumentSignedUrl,
+  listProductionDocuments,
+  trackDownload,
+  type ProductionDocument,
+} from '@/data/production-library'
 import { milestoneProgress, usePartnerProjects, useProjectsState } from '@/data/projects-store'
 import { useDemoSession } from '@/hooks/useDemoSession'
-import { isAuthLocalFallback } from '@/lib/auth'
 import { usePartnerStanding } from '@/lib/standing'
 
 /* ─── Documents ─────────────────────────────────────────── */
@@ -51,23 +52,42 @@ function formatDocDate(iso: string) {
 }
 
 export function DocumentsPage() {
-  const { docs, loading, error } = useLibraryDocuments(false)
+  const [docs, setDocs] = useState<ProductionDocument[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [q, setQ] = useState('')
+  const [layer, setLayer] = useState('')
   const [preview, setPreview] = useState<PreviewDoc | null>(null)
 
-  async function openDoc(d: LibraryDocument) {
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    void listProductionDocuments({ q, layer }).then((res) => {
+      if (cancelled) return
+      setDocs(res.docs)
+      setError(res.error)
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [q, layer])
+
+  async function openDoc(d: ProductionDocument) {
     setPreview({
       title: d.title,
-      type: d.fileType,
-      tag: d.tag,
+      type: d.docType,
+      tag: d.ecosystemLayer || d.tags[0] || 'Document',
       body: d.summary ? [d.summary] : undefined,
       loading: true,
       pdfUrl: null,
     })
-    const { url, error: urlErr } = await getLibrarySignedUrl(d.storagePath)
+    const { url, error: urlErr } = await getDocumentSignedUrl(d.storagePath)
+    if (url) await trackDownload(d)
     setPreview({
       title: d.title,
-      type: d.fileType,
-      tag: d.tag,
+      type: d.docType,
+      tag: `${d.version} · ${d.accessLevel}`,
       body: d.summary ? [d.summary] : undefined,
       loading: false,
       pdfUrl: url,
@@ -79,41 +99,46 @@ export function DocumentsPage() {
     <PortalPage>
       <PortalPageHeader
         eyebrow="Thư viện"
-        title="Tài liệu curated"
-        description="PDF private trên Supabase Storage — xem bằng signed URL. Staff upload tại /admin/library."
+        title="Tài liệu"
+        description="Tài liệu production do 3HORIZONS publish. Tìm theo tiêu đề hoặc tầng hệ sinh thái."
       />
+
+      <div className="flex flex-wrap gap-2">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Tìm tiêu đề…"
+          className="h-9 min-w-[12rem] flex-1 rounded-lg border border-espresso-900/10 bg-white px-3 text-sm outline-none focus:border-gold-600/40"
+        />
+        <select
+          value={layer}
+          onChange={(e) => setLayer(e.target.value)}
+          className="h-9 rounded-lg border border-espresso-900/10 bg-white px-3 text-sm"
+        >
+          <option value="">Tất cả tầng</option>
+          {ECOSYSTEM_LAYERS.map((l) => (
+            <option key={l} value={l}>
+              {l}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {error ? (
         <PortalCard>
           <p className="text-sm text-terracotta-600">{error}</p>
-          <p className="mt-2 text-xs text-espresso-500">
-            Không dùng “Vào local”. Dùng email/password + <strong>Đăng nhập Supabase</strong>.
-          </p>
-          <Link
-            to="/login"
-            className="mt-3 inline-flex text-sm font-medium text-gold-600 hover:underline"
-          >
-            Đăng nhập Supabase
+          <Link to="/login" className="mt-3 inline-flex text-sm font-medium text-gold-600 hover:underline">
+            Đăng nhập
           </Link>
         </PortalCard>
       ) : null}
 
-      {loading ? (
-        <p className="text-sm text-espresso-500">Đang tải thư viện storage…</p>
-      ) : null}
+      {loading ? <p className="text-sm text-espresso-500">Đang tải…</p> : null}
 
       {!loading && !error && docs.length === 0 ? (
         <PortalEmpty
-          title="Chưa có PDF trong storage"
-          body="Thư viện trống. Staff: /admin/library → “Seed 3 PDF demo” (sau khi login staff Supabase)."
-          action={
-            <Link
-              to="/admin/library"
-              className="inline-flex text-sm font-semibold text-gold-600 hover:underline"
-            >
-              Mở Admin Library
-            </Link>
-          }
+          title="Chưa có tài liệu"
+          body="Chưa có tài liệu được publish cho partner. Administrator sẽ upload tại /admin/library."
         />
       ) : null}
 
@@ -131,14 +156,15 @@ export function DocumentsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-espresso-900">{d.title}</p>
                   <p className="mt-0.5 text-[11px] text-espresso-500">
-                    {d.tag} · {d.fileType} · {formatFileSize(d.fileSize)} ·{' '}
+                    {d.docType} · v{d.version} · {formatFileSize(d.fileSize)} ·{' '}
                     {formatDocDate(d.updatedAt)}
+                    {d.ecosystemLayer ? ` · ${d.ecosystemLayer}` : ''}
                   </p>
                   {d.summary ? (
                     <p className="mt-1 line-clamp-1 text-xs text-espresso-500">{d.summary}</p>
                   ) : null}
                 </div>
-                <PortalGhostBtn onClick={() => void openDoc(d)}>Xem PDF</PortalGhostBtn>
+                <PortalGhostBtn onClick={() => void openDoc(d)}>Tải / Xem</PortalGhostBtn>
               </li>
             ))}
           </ul>
@@ -227,7 +253,6 @@ export function ProjectsPage() {
   const { session } = useDemoSession()
   const { loading, error } = useProjectsState()
   const myProjects = usePartnerProjects(session.partnerId, false)
-  const localMode = isAuthLocalFallback()
 
   return (
     <PortalPage>
@@ -236,12 +261,6 @@ export function ProjectsPage() {
         title="Engagement đang mở"
         description="Chỉ engagement bạn được gán. Mở phòng làm việc để xem timeline mốc."
       />
-
-      {localMode ? (
-        <div className="rounded-xl border border-amber-500/25 bg-amber-50/90 px-4 py-2.5 text-xs text-amber-950">
-          Phiên local — dữ liệu demo. PDF Storage / RLS cloud cần đăng nhập Supabase Auth.
-        </div>
-      ) : null}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-espresso-500">
         <span>

@@ -72,7 +72,7 @@ export async function listLibraryDocuments(opts?: {
     return {
       docs: [],
       error:
-        'Cần đăng nhập Supabase Auth (không dùng “local”). Email: cuong.doan@partners.3horizons.vn — nút “Đăng nhập Supabase”.',
+        'Cần đăng nhập bằng tài khoản Supabase Auth được cấp (staff/partner).',
       needsAuth: true,
     }
   }

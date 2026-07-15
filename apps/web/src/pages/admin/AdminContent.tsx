@@ -37,7 +37,7 @@ export function AdminContent() {
           { label: 'Homepage', to: '/admin/content/homepage', desc: 'Hero, sections, CTA' },
           { label: 'Ecosystem layers', to: '/layers', desc: 'T1–T7 landing' },
           { label: 'Case studies', to: '/insights', desc: 'Insights public' },
-          { label: 'Thư viện PDF', to: '/admin/library', desc: 'Upload Storage + seed' },
+          { label: 'Thư viện PDF', to: '/admin/library', desc: 'Upload Storage production' },
         ].map((c) => (
           <Link
             key={c.label}
@@ -84,6 +84,13 @@ export function AdminContent() {
               </Td>
             </tr>
           ))}
+          {!adminContent.length ? (
+            <tr>
+              <Td className="text-sm text-espresso-500">
+                Chưa có CMS items demo. Homepage editor + library production là nguồn nội dung live.
+              </Td>
+            </tr>
+          ) : null}
         </tbody>
       </AdminTable>
     </div>

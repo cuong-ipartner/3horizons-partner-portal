@@ -18,13 +18,10 @@ import {
   User,
   X,
 } from 'lucide-react'
-import { DemoModeBanner } from '@/components/DemoModeBanner'
 import { Logo } from '@/components/Logo'
 import { NexusPanel } from '@/components/nexus/NexusPanel'
 import { useDemoSession } from '@/hooks/useDemoSession'
-import { logoutAuth } from '@/lib/auth'
-import { isAuthLocalFallback } from '@/lib/auth'
-import { useSeedData } from '@/lib/config'
+import { logoutProduction } from '@/lib/production-auth'
 import { cn } from '@/lib/cn'
 
 /** Partner portal only — executive labels, no admin */
@@ -51,10 +48,9 @@ export function PortalShell() {
   const profileRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const { session } = useDemoSession()
-  const showDemoBanner = useSeedData() || isAuthLocalFallback()
-  const headerTop = showDemoBanner ? 'top-8' : 'top-0'
-  const asideTop = showDemoBanner ? 'top-[5.5rem] lg:top-[6rem]' : 'top-14 lg:top-16'
-  const mainPad = showDemoBanner ? 'pt-[5.5rem] lg:pt-[6rem]' : 'pt-14 lg:pt-16'
+  const headerTop = 'top-0'
+  const asideTop = 'top-14 lg:top-16'
+  const mainPad = 'pt-14 lg:pt-16'
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -68,12 +64,6 @@ export function PortalShell() {
 
   return (
     <div className="paper-texture min-h-screen bg-cream-100 text-espresso-800">
-      {showDemoBanner ? (
-        <div className="fixed inset-x-0 top-0 z-50">
-          <DemoModeBanner />
-        </div>
-      ) : null}
-
       <header
         className={cn(
           'fixed inset-x-0 z-40 flex h-14 items-center gap-3 border-b border-espresso-900/8 bg-cream-50/90 px-3 shadow-[0_1px_0_rgba(28,22,16,0.04)] backdrop-blur-md sm:px-4 lg:h-16 lg:px-5',
@@ -182,7 +172,7 @@ export function PortalShell() {
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-terracotta-600 transition hover:bg-terracotta-500/5"
                     onClick={() => {
                       setProfileOpen(false)
-                      void logoutAuth().then(() => navigate('/login'))
+                      void logoutProduction().then(() => navigate('/login'))
                     }}
                   >
                     <LogOut className="h-4 w-4" strokeWidth={1.75} />

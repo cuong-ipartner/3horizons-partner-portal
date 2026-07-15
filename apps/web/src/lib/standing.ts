@@ -19,39 +19,11 @@ export type PartnerStanding = {
   source: 'supabase' | 'local'
 }
 
+/** No hard-coded demo partner standing — profile fields come from Supabase. */
 const STANDING_DEFAULTS: Record<
   string,
   Pick<PartnerStanding, 'region' | 'focusLayers' | 'statusLabel' | 'memberSince' | 'verified'>
-> = {
-  'cuong-doan': {
-    region: 'Việt Nam',
-    focusLayers: 'T1 Chiến lược · T6 Kế thừa',
-    statusLabel: 'Verified · Đang triển khai',
-    memberSince: '03/2026',
-    verified: true,
-  },
-  'lan-pham': {
-    region: 'Việt Nam',
-    focusLayers: 'T1 Chiến lược · T3 Năng lực',
-    statusLabel: 'Verified · Active',
-    memberSince: '01/2026',
-    verified: true,
-  },
-  'erik-sundberg': {
-    region: 'APAC',
-    focusLayers: 'T4 Thực thi · T1 Chiến lược',
-    statusLabel: 'Verified · Limited',
-    memberSince: '11/2025',
-    verified: true,
-  },
-  'david-tran': {
-    region: 'Việt Nam',
-    focusLayers: 'T7 Family governance',
-    statusLabel: 'Verified · Active',
-    memberSince: '02/2026',
-    verified: true,
-  },
-}
+> = {}
 
 function formatMemberSince(iso?: string | null) {
   if (!iso) return '—'
@@ -69,11 +41,11 @@ function statusFromDb(status?: string | null, verified?: boolean | null) {
 
 export function standingFromSession(session: DemoSession): PartnerStanding {
   const d = STANDING_DEFAULTS[session.partnerId] ?? {
-    region: 'Việt Nam',
-    focusLayers: 'T1 · T6',
-    statusLabel: 'Verified · Đang triển khai',
-    memberSince: '03/2026',
-    verified: true,
+    region: '—',
+    focusLayers: '—',
+    statusLabel: 'Partner',
+    memberSince: '—',
+    verified: false,
   }
   return {
     name: session.name,

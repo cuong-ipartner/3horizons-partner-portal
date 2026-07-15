@@ -30,22 +30,32 @@ export function InsightsIndexPage() {
           Kết quảs framed by problem and layer — evidence for trust, not marketplace noise.
         </Lead>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {insights.map((ins) => (
-            <Link key={ins.slug} to={`/insights/${ins.slug}`} className="group">
-              <Card className="flex h-full flex-col p-6 transition group-hover:shadow-card">
-                <Badge>{ins.industry}</Badge>
-                <h2 className="mt-4 font-semibold text-espresso-900 group-hover:text-terracotta-600">
-                  {ins.title}
-                </h2>
-                <p className="mt-2 flex-1 text-sm leading-relaxed text-espresso-600">
-                  {ins.summary}
-                </p>
-                <p className="mt-4 text-sm font-medium text-espresso-800">{ins.outcome}</p>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        {insights.length === 0 ? (
+          <div className="mt-10">
+            <EmptyState
+              title="Chưa có case study công khai"
+              body="Insights sẽ được publish khi có minh chứng engagement thực tế."
+              action={<ButtonLink to="/join">Tham gia mạng lưới</ButtonLink>}
+            />
+          </div>
+        ) : (
+          <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {insights.map((ins) => (
+              <Link key={ins.slug} to={`/insights/${ins.slug}`} className="group">
+                <Card className="flex h-full flex-col p-6 transition group-hover:shadow-card">
+                  <Badge>{ins.industry}</Badge>
+                  <h2 className="mt-4 font-semibold text-espresso-900 group-hover:text-terracotta-600">
+                    {ins.title}
+                  </h2>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-espresso-600">
+                    {ins.summary}
+                  </p>
+                  <p className="mt-4 text-sm font-medium text-espresso-800">{ins.outcome}</p>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
       </Container>
     </Section>
   )

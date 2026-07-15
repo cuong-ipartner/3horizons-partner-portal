@@ -1,11 +1,4 @@
-import { useMemo, useState } from 'react'
-import {
-  adminUsers,
-  roleLabels,
-  rolePermissions,
-  userStatusLabels,
-  type AdminUser,
-} from '@/data/admin-seed'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import {
   ActionBtn,
   AdminBadge,
@@ -16,167 +9,267 @@ import {
   Th,
   fieldClass,
 } from '@/components/admin/AdminUi'
+import { adminApi } from '@/lib/production-auth'
+
+type UserRow = {
+  id: string
+  email: string
+  full_name: string | null
+  role: string
+  status: string
+  partner_slug: string | null
+  created_at: string
+  last_login_at: string | null
+  invited_at: string | null
+}
+
+const ROLES = [
+  'partner',
+  'partner_manager',
+  'content_editor',
+  'project_operator',
+  'super_admin',
+  'client',
+]
 
 export function AdminUsers() {
-  const [q, setQ] = useState('')
-  const [role, setRole] = useState('')
+  const [users, setUsers] = useState<UserRow[]>([])
   const [status, setStatus] = useState('')
-  const [selected, setSelected] = useState<AdminUser | null>(null)
-  const [toast, setToast] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [role, setRole] = useState('partner')
+  const [partnerSlug, setPartnerSlug] = useState('')
+  const [tempSecret, setTempSecret] = useState<string | null>(null)
 
-  const rows = useMemo(() => {
-    return adminUsers.filter((u) => {
-      const t = `${u.name} ${u.email}`.toLowerCase()
-      if (q && !t.includes(q.toLowerCase())) return false
-      if (role && u.role !== role) return false
-      if (status && u.status !== status) return false
-      return true
+  const flash = (m: string) => {
+    setToast(m)
+    window.setTimeout(() => setToast(null), 4000)
+  }
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const res = await adminApi<{ users: UserRow[] }>('/api/admin/users')
+    setLoading(false)
+    if (res.error) {
+      setError(res.error)
+      setUsers([])
+      return
+    }
+    setError(null)
+    setUsers(res.data?.users ?? [])
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const rows = users.filter((u) => !status || u.status === status)
+
+  async function onInvite(e: FormEvent) {
+    e.preventDefault()
+    const res = await adminApi<{
+      ok?: boolean
+      temporary_password?: string
+      error?: string
+      message?: string
+    }>('/api/admin/users', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'invite',
+        email,
+        full_name: fullName,
+        role,
+        partner_slug: partnerSlug || undefined,
+      }),
     })
-  }, [q, role, status])
+    if (res.error) {
+      flash(res.error)
+      return
+    }
+    setTempSecret(res.data?.temporary_password ?? null)
+    flash(res.data?.message || 'Đã mời user')
+    setEmail('')
+    setFullName('')
+    setPartnerSlug('')
+    void load()
+  }
 
-  function notify(msg: string) {
-    setToast(msg)
-    window.setTimeout(() => setToast(''), 2200)
+  async function setUserStatus(id: string, next: string) {
+    const res = await adminApi('/api/admin/users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'set_status', user_id: id, status: next }),
+    })
+    flash(res.error || `Status → ${next}`)
+    void load()
+  }
+
+  async function setUserRole(id: string, next: string) {
+    const res = await adminApi('/api/admin/users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'set_role', user_id: id, role: next }),
+    })
+    flash(res.error || `Role → ${next}`)
+    void load()
+  }
+
+  async function resetPw(id: string) {
+    const res = await adminApi<{ temporary_password?: string }>('/api/admin/users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'reset_password', user_id: id }),
+    })
+    if (res.data?.temporary_password) setTempSecret(res.data.temporary_password)
+    flash(res.error || 'Đã reset mật khẩu tạm')
   }
 
   return (
     <div className="mx-auto max-w-7xl">
       <AdminPageHeader
-        title="Quản lý người dùng"
-        description="Danh sách user, vai trò, quyền, reset mật khẩu, tạm dừng / khôi phục và lịch sử hoạt động."
+        title="Users"
+        description="Invite, roles, active / suspended / archived, reset password. Requires SUPABASE_SERVICE_ROLE_KEY on Pages Functions."
       />
+
+      {error ? (
+        <div className="mb-4 rounded-xl border border-terracotta-500/30 bg-terracotta-500/5 px-4 py-3 text-sm text-terracotta-600">
+          {error}
+          <p className="mt-1 text-xs">
+            Set secret <code className="font-mono">SUPABASE_SERVICE_ROLE_KEY</code> +{' '}
+            <code className="font-mono">VITE_SUPABASE_URL</code> on Cloudflare Pages Functions.
+          </p>
+        </div>
+      ) : null}
+
       {toast ? (
         <div className="mb-4 rounded-xl border border-success/30 bg-success/10 px-4 py-2 text-sm text-success">
           {toast}
         </div>
       ) : null}
 
-      <FilterBar>
+      {tempSecret ? (
+        <div className="mb-4 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-espresso-800">
+          Mật khẩu tạm (chỉ hiện một lần):{' '}
+          <code className="rounded bg-white px-2 py-0.5 font-mono text-xs">{tempSecret}</code>
+          <button type="button" className="ml-3 text-xs font-medium text-portal-700" onClick={() => setTempSecret(null)}>
+            Ẩn
+          </button>
+        </div>
+      ) : null}
+
+      <form
+        onSubmit={(e) => void onInvite(e)}
+        className="mb-6 grid gap-3 rounded-2xl border border-portal-200 bg-white p-5 shadow-sm sm:grid-cols-2"
+      >
+        <p className="text-sm font-semibold text-espresso-900 sm:col-span-2">Invite user</p>
         <input
-          className={fieldClass() + ' min-w-[200px] flex-1'}
-          placeholder="Tìm tên / email…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
+          className={fieldClass() + ' w-full'}
+          placeholder="Email *"
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
         />
-        <select className={fieldClass()} value={role} onChange={(e) => setRole(e.target.value)}>
-          <option value="">Tất cả role</option>
-          {Object.entries(roleLabels).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
+        <input
+          className={fieldClass() + ' w-full'}
+          placeholder="Full name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+        />
+        <select className={fieldClass() + ' w-full'} value={role} onChange={(e) => setRole(e.target.value)}>
+          {ROLES.map((r) => (
+            <option key={r} value={r}>
+              {r}
             </option>
           ))}
         </select>
+        <input
+          className={fieldClass() + ' w-full'}
+          placeholder="Partner slug (optional)"
+          value={partnerSlug}
+          onChange={(e) => setPartnerSlug(e.target.value)}
+        />
+        <div className="sm:col-span-2">
+          <ActionBtn variant="primary" type="submit">
+            Invite / Create
+          </ActionBtn>
+        </div>
+      </form>
+
+      <FilterBar>
         <select className={fieldClass()} value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">Tất cả status</option>
-          <option value="active">Hoạt động</option>
-          <option value="suspended">Tạm dừng</option>
-          <option value="invited">Đã mời</option>
+          <option value="">All statuses</option>
+          <option value="active">active</option>
+          <option value="invited">invited</option>
+          <option value="suspended">suspended</option>
+          <option value="archived">archived</option>
         </select>
+        <ActionBtn onClick={() => void load()}>{loading ? 'Loading…' : 'Refresh'}</ActionBtn>
       </FilterBar>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <AdminTable>
-            <thead>
-              <tr>
-                <Th>User</Th>
-                <Th>Role</Th>
-                <Th>Status</Th>
-                <Th>Last login</Th>
-                <Th>Thao tác</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((u) => (
-                <tr key={u.id} className="hover:bg-portal-50/40">
-                  <Td>
-                    <button type="button" className="text-left" onClick={() => setSelected(u)}>
-                      <p className="font-medium text-espresso-900 hover:text-portal-700">{u.name}</p>
-                      <p className="text-xs text-espresso-500">{u.email}</p>
-                    </button>
-                  </Td>
-                  <Td>
-                    <AdminBadge tone="info">{roleLabels[u.role]}</AdminBadge>
-                  </Td>
-                  <Td>
-                    <AdminBadge
-                      tone={
-                        u.status === 'active' ? 'ok' : u.status === 'suspended' ? 'danger' : 'warn'
-                      }
-                    >
-                      {userStatusLabels[u.status]}
-                    </AdminBadge>
-                  </Td>
-                  <Td className="text-xs text-espresso-500">{u.lastLogin}</Td>
-                  <Td>
-                    <div className="flex flex-wrap gap-1.5">
-                      <ActionBtn onClick={() => notify(`Đã gửi reset mật khẩu tới ${u.email}`)}>
-                        Reset MK
-                      </ActionBtn>
-                      {u.status === 'suspended' ? (
-                        <ActionBtn variant="primary" onClick={() => notify(`Đã khôi phục ${u.name}`)}>
-                          Khôi phục
-                        </ActionBtn>
-                      ) : (
-                        <ActionBtn variant="danger" onClick={() => notify(`Đã tạm dừng ${u.name}`)}>
-                          Tạm dừng
-                        </ActionBtn>
-                      )}
-                    </div>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </AdminTable>
-        </div>
-
-        <aside className="rounded-2xl border border-portal-200/80 bg-white p-5 shadow-sm">
-          {selected ? (
-            <>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-portal-600">
-                Chi tiết user
-              </p>
-              <h2 className="mt-1 font-display text-xl font-semibold text-espresso-900">
-                {selected.name}
-              </h2>
-              <p className="text-sm text-espresso-500">{selected.email}</p>
-              <dl className="mt-4 space-y-2 text-sm">
-                <div className="flex justify-between gap-2">
-                  <dt className="text-espresso-500">Role</dt>
-                  <dd className="font-medium">{roleLabels[selected.role]}</dd>
+      <AdminTable>
+        <thead>
+          <tr>
+            <Th>User</Th>
+            <Th>Role</Th>
+            <Th>Status</Th>
+            <Th>Last login</Th>
+            <Th />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((u) => (
+            <tr key={u.id} className="hover:bg-portal-50/40">
+              <Td>
+                <p className="font-medium text-espresso-900">{u.full_name || '—'}</p>
+                <p className="text-xs text-espresso-500">{u.email}</p>
+              </Td>
+              <Td>
+                <select
+                  className={fieldClass() + ' text-xs'}
+                  value={u.role}
+                  onChange={(e) => void setUserRole(u.id, e.target.value)}
+                >
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </Td>
+              <Td>
+                <AdminBadge
+                  tone={
+                    u.status === 'active' ? 'ok' : u.status === 'suspended' ? 'warn' : 'neutral'
+                  }
+                >
+                  {u.status}
+                </AdminBadge>
+              </Td>
+              <Td className="text-xs text-espresso-500">
+                {u.last_login_at ? new Date(u.last_login_at).toLocaleString('vi-VN') : '—'}
+              </Td>
+              <Td>
+                <div className="flex flex-wrap gap-1">
+                  {u.status !== 'active' ? (
+                    <ActionBtn onClick={() => void setUserStatus(u.id, 'active')}>Activate</ActionBtn>
+                  ) : null}
+                  {u.status === 'active' ? (
+                    <ActionBtn onClick={() => void setUserStatus(u.id, 'suspended')}>Suspend</ActionBtn>
+                  ) : null}
+                  <ActionBtn onClick={() => void setUserStatus(u.id, 'archived')}>Archive</ActionBtn>
+                  <ActionBtn onClick={() => void resetPw(u.id)}>Reset PW</ActionBtn>
                 </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-espresso-500">Status</dt>
-                  <dd className="font-medium">{userStatusLabels[selected.status]}</dd>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-espresso-500">Tạo lúc</dt>
-                  <dd className="font-medium">{selected.createdAt}</dd>
-                </div>
-              </dl>
-              <p className="mt-5 text-xs font-semibold text-espresso-900">Permissions</p>
-              <ul className="mt-2 space-y-1">
-                {(rolePermissions[selected.role].includes('*')
-                  ? ['Toàn quyền (*)']
-                  : rolePermissions[selected.role]
-                ).map((p) => (
-                  <li key={p} className="rounded-lg bg-portal-50 px-2 py-1.5 text-xs text-portal-800">
-                    {p}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-5 text-xs font-semibold text-espresso-900">Activity history (demo)</p>
-              <ul className="mt-2 space-y-2 text-xs text-espresso-500">
-                <li>Login · {selected.lastLogin}</li>
-                <li>Role assigned · {selected.createdAt}</li>
-                <li>Profile viewed · admin</li>
-              </ul>
-            </>
-          ) : (
-            <p className="text-sm text-espresso-500">Chọn một user để xem quyền và lịch sử.</p>
-          )}
-        </aside>
-      </div>
+              </Td>
+            </tr>
+          ))}
+          {!rows.length && !loading ? (
+            <tr>
+              <Td className="text-sm text-espresso-500">No users yet — invite the first account.</Td>
+            </tr>
+          ) : null}
+        </tbody>
+      </AdminTable>
     </div>
   )
 }

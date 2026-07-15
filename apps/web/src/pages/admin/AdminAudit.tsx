@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react'
-import { auditLogs } from '@/data/admin-seed'
+import { useCallback, useEffect, useState } from 'react'
 import {
-  AdminBadge,
+  ActionBtn,
   AdminPageHeader,
   AdminTable,
   FilterBar,
@@ -9,86 +8,103 @@ import {
   Th,
   fieldClass,
 } from '@/components/admin/AdminUi'
+import { getSupabase } from '@/lib/supabase'
 
-const catVi: Record<string, string> = {
-  login: 'Đăng nhập',
-  approval: 'Duyệt / approve',
-  edit: 'Chỉnh sửa',
-  permission: 'Phân quyền',
-  security: 'Bảo mật',
+type AuditRow = {
+  id: string
+  actor_email: string | null
+  action: string
+  entity_type: string
+  entity_id: string | null
+  meta: Record<string, unknown>
+  created_at: string
 }
 
 export function AdminAudit() {
-  const [cat, setCat] = useState('')
+  const [rows, setRows] = useState<AuditRow[]>([])
   const [q, setQ] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const rows = useMemo(() => {
-    return auditLogs.filter((a) => {
-      if (cat && a.category !== cat) return false
-      const t = `${a.actor} ${a.action} ${a.target}`.toLowerCase()
-      if (q && !t.includes(q.toLowerCase())) return false
-      return true
-    })
-  }, [cat, q])
+  const load = useCallback(async () => {
+    setLoading(true)
+    const sb = getSupabase()
+    if (!sb) {
+      setError('Supabase not configured')
+      setLoading(false)
+      return
+    }
+    let query = sb
+      .from('audit_logs')
+      .select('id,actor_email,action,entity_type,entity_id,meta,created_at')
+      .order('created_at', { ascending: false })
+      .limit(100)
+    if (q.trim()) query = query.ilike('action', `%${q.trim()}%`)
+    const { data, error: err } = await query
+    setLoading(false)
+    if (err) {
+      setError(err.message)
+      setRows([])
+      return
+    }
+    setError(null)
+    setRows((data as AuditRow[]) || [])
+  }, [q])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   return (
     <div className="mx-auto max-w-7xl">
       <AdminPageHeader
-        title="Audit & logs"
-        description="Login history, approval history, edit history, permission changes, security logs — truy vết đầy đủ."
+        title="Audit logs"
+        description="Key admin and document actions. Staff-only (RLS)."
       />
-
+      {error ? (
+        <div className="mb-4 text-sm text-terracotta-600">{error}</div>
+      ) : null}
       <FilterBar>
         <input
-          className={fieldClass() + ' min-w-[200px] flex-1'}
-          placeholder="Tìm actor / action / target…"
+          className={fieldClass()}
+          placeholder="Filter action"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <select className={fieldClass()} value={cat} onChange={(e) => setCat(e.target.value)}>
-          <option value="">Tất cả loại</option>
-          {Object.entries(catVi).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
+        <ActionBtn onClick={() => void load()}>{loading ? '…' : 'Refresh'}</ActionBtn>
       </FilterBar>
-
       <AdminTable>
         <thead>
           <tr>
-            <Th>Thời gian</Th>
+            <Th>When</Th>
             <Th>Actor</Th>
-            <Th>Hành động</Th>
-            <Th>Target</Th>
-            <Th>Loại</Th>
+            <Th>Action</Th>
+            <Th>Entity</Th>
+            <Th>Meta</Th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((a) => (
-            <tr key={a.id} className="hover:bg-portal-50/40">
-              <Td className="whitespace-nowrap text-xs text-espresso-500">{a.at}</Td>
-              <Td className="font-medium">{a.actor}</Td>
-              <Td>{a.action}</Td>
-              <Td className="text-xs font-mono text-portal-800">{a.target}</Td>
-              <Td>
-                <AdminBadge
-                  tone={
-                    a.category === 'security'
-                      ? 'danger'
-                      : a.category === 'approval'
-                        ? 'warn'
-                        : a.category === 'permission'
-                          ? 'info'
-                          : 'neutral'
-                  }
-                >
-                  {catVi[a.category]}
-                </AdminBadge>
+          {rows.map((r) => (
+            <tr key={r.id}>
+              <Td className="text-xs whitespace-nowrap">
+                {new Date(r.created_at).toLocaleString('vi-VN')}
+              </Td>
+              <Td className="text-xs">{r.actor_email || '—'}</Td>
+              <Td className="text-xs font-medium">{r.action}</Td>
+              <Td className="text-xs">
+                {r.entity_type}
+                {r.entity_id ? ` · ${r.entity_id}` : ''}
+              </Td>
+              <Td className="max-w-xs truncate font-mono text-[10px] text-espresso-500">
+                {JSON.stringify(r.meta || {})}
               </Td>
             </tr>
           ))}
+          {!rows.length && !loading ? (
+            <tr>
+              <Td className="text-sm text-espresso-500">No audit events yet.</Td>
+            </tr>
+          ) : null}
         </tbody>
       </AdminTable>
     </div>

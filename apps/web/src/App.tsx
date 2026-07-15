@@ -41,6 +41,7 @@ import { AdminContent } from '@/pages/admin/AdminContent'
 import { AdminLibrary } from '@/pages/admin/AdminLibrary'
 import { AdminRoles } from '@/pages/admin/AdminRoles'
 import { AdminAudit } from '@/pages/admin/AdminAudit'
+import { AdminSettings } from '@/pages/admin/AdminSettings'
 
 function App() {
   return (
@@ -66,6 +67,7 @@ function App() {
           <Route path="library" element={<AdminLibrary />} />
           <Route path="roles" element={<AdminRoles />} />
           <Route path="audit" element={<AdminAudit />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
 
         <Route

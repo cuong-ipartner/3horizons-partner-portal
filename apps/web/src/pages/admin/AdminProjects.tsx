@@ -21,8 +21,7 @@ import {
   fieldClass,
 } from '@/components/admin/AdminUi'
 import { cn } from '@/lib/cn'
-import { DEMO_PARTNER_PERSONAS } from '@/lib/session'
-import { DEMO_STAFF_PERSONA, ensureStaffAuth, DEMO_PASSWORD } from '@/lib/auth'
+import { ensureStaffAuth } from '@/lib/auth'
 import { isSupabaseAuthEnabled, supabaseBackendLabel } from '@/lib/supabase'
 import { Link } from 'react-router-dom'
 
@@ -31,16 +30,6 @@ const statusVi: Record<ProjectStatus, string> = {
   paused: 'Tạm dừng',
   archived: 'Lưu trữ',
 }
-
-const ASSIGNABLE_PARTNERS = [
-  ...DEMO_PARTNER_PERSONAS.map((p) => ({
-    partnerId: p.partnerId,
-    displayName: p.name,
-  })),
-  { partnerId: 'mai-hoang', displayName: 'Mai Hoàng' },
-  { partnerId: 'james-okonkwo', displayName: 'James Okonkwo' },
-  { partnerId: 'sofia-nguyen', displayName: 'Sofia Nguyen' },
-]
 
 export function AdminProjects() {
   const { projects, loading, error, backend, refresh } = useProjectsState()
@@ -53,9 +42,11 @@ export function AdminProjects() {
   const [title, setTitle] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [nextAction, setNextAction] = useState('')
-  const [owner, setOwner] = useState('Facilitator 3H')
-  const [createPartnerId, setCreatePartnerId] = useState(ASSIGNABLE_PARTNERS[0].partnerId)
-  const [assignPartnerId, setAssignPartnerId] = useState(ASSIGNABLE_PARTNERS[0].partnerId)
+  const [owner, setOwner] = useState('3HORIZONS Facilitator')
+  const [createPartnerId, setCreatePartnerId] = useState('')
+  const [createPartnerName, setCreatePartnerName] = useState('')
+  const [assignPartnerId, setAssignPartnerId] = useState('')
+  const [assignPartnerName, setAssignPartnerName] = useState('')
 
   const selected: NetworkProject | null =
     projects.find((p) => p.id === selectedId) ?? projects[0] ?? null
@@ -91,19 +82,23 @@ export function AdminProjects() {
         return
       }
     }
-    const persona = ASSIGNABLE_PARTNERS.find((p) => p.partnerId === createPartnerId)
+    if (!createPartnerId.trim()) {
+      flash('Nhập partner slug (membership)')
+      setBusy(false)
+      return
+    }
     const res = await createProject({
       title: title.trim(),
       dueDate: dueDate || undefined,
       nextAction: nextAction || 'Kickoff collaboration',
-      owners: owner ? [owner] : ['Facilitator 3H'],
+      owners: owner ? [owner] : ['3HORIZONS Facilitator'],
       members: [
         {
-          partnerId: createPartnerId,
-          displayName: persona?.displayName ?? createPartnerId,
+          partnerId: createPartnerId.trim(),
+          displayName: createPartnerName.trim() || createPartnerId.trim(),
           role: 'partner',
         },
-        { partnerId: 'staff-3h', displayName: 'Facilitator 3H', role: 'facilitator' },
+        { partnerId: 'staff', displayName: '3HORIZONS Facilitator', role: 'facilitator' },
       ],
     })
     await refresh()
@@ -114,8 +109,10 @@ export function AdminProjects() {
       setTitle('')
       setDueDate('')
       setNextAction('')
+      setCreatePartnerId('')
+      setCreatePartnerName('')
       flash(
-        `Đã tạo ${res.project.id} via ${res.via}${res.error ? ` (${res.error})` : ''} — partner ${persona?.displayName}`,
+        `Đã tạo ${res.project.id} via ${res.via}${res.error ? ` (${res.error})` : ''}`,
       )
     } else {
       flash(res.error || 'Tạo project thất bại')
@@ -124,21 +121,20 @@ export function AdminProjects() {
 
   async function onAssign() {
     if (!selected) return
+    if (!assignPartnerId.trim()) {
+      flash('Nhập partner slug')
+      return
+    }
     setBusy(true)
     if (isSupabaseAuthEnabled()) await ensureStaffSession()
-    const persona = ASSIGNABLE_PARTNERS.find((p) => p.partnerId === assignPartnerId)
     const res = await assignPartner(selected.id, {
-      partnerId: assignPartnerId,
-      displayName: persona?.displayName ?? assignPartnerId,
+      partnerId: assignPartnerId.trim(),
+      displayName: assignPartnerName.trim() || assignPartnerId.trim(),
       role: 'partner',
     })
     await refresh()
     setBusy(false)
-    flash(
-      res.error
-        ? res.error
-        : `Đã gán ${persona?.displayName} via ${res.via}`,
-    )
+    flash(res.error ? res.error : `Đã gán ${assignPartnerId} via ${res.via}`)
   }
 
   async function onRemovePartner(partnerId: string) {
@@ -175,11 +171,11 @@ export function AdminProjects() {
           {busy ? ' · busy…' : ''}
         </p>
         <p className="mt-1 text-xs leading-relaxed text-espresso-500">
-          {supabaseBackendLabel()}. Staff demo:{' '}
+          {supabaseBackendLabel()}. Cần{' '}
           <Link to="/login" className="font-medium text-portal-700 hover:underline">
-            login Facilitator 3H
+            đăng nhập staff
           </Link>{' '}
-          ({DEMO_STAFF_PERSONA.email} / {DEMO_PASSWORD}).
+          (tài khoản thật, role staff). Partner slug = profiles.partner_slug.
         </p>
         {error ? <p className="mt-1 text-xs text-terracotta-600">{error}</p> : null}
       </div>
@@ -213,10 +209,10 @@ export function AdminProjects() {
             resetProjectsToSeed()
             setSelectedId(null)
             void refresh()
-            flash('Reset local seed (không xoá Supabase)')
+            flash('Đã xoá local cache projects (không xoá Supabase)')
           }}
         >
-          Reset local seed
+          Clear local cache
         </ActionBtn>
       </FilterBar>
 
@@ -237,19 +233,26 @@ export function AdminProjects() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-espresso-600">
-              Gán partner (membership)
+              Partner slug (membership) *
             </label>
-            <select
+            <input
               className={fieldClass() + ' w-full'}
               value={createPartnerId}
               onChange={(e) => setCreatePartnerId(e.target.value)}
-            >
-              {ASSIGNABLE_PARTNERS.map((p) => (
-                <option key={p.partnerId} value={p.partnerId}>
-                  {p.displayName} ({p.partnerId})
-                </option>
-              ))}
-            </select>
+              placeholder="vd: acme-corp"
+              required
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-espresso-600">
+              Partner display name
+            </label>
+            <input
+              className={fieldClass() + ' w-full'}
+              value={createPartnerName}
+              onChange={(e) => setCreatePartnerName(e.target.value)}
+              placeholder="Tên hiển thị"
+            />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-espresso-600">Owner 3H</label>
@@ -380,17 +383,18 @@ export function AdminProjects() {
                   ))}
                 </ul>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <select
+                  <input
                     className={fieldClass()}
                     value={assignPartnerId}
                     onChange={(e) => setAssignPartnerId(e.target.value)}
-                  >
-                    {ASSIGNABLE_PARTNERS.map((p) => (
-                      <option key={p.partnerId} value={p.partnerId}>
-                        {p.displayName}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="partner-slug"
+                  />
+                  <input
+                    className={fieldClass()}
+                    value={assignPartnerName}
+                    onChange={(e) => setAssignPartnerName(e.target.value)}
+                    placeholder="Display name"
+                  />
                   <ActionBtn onClick={() => void onAssign()}>Gán partner</ActionBtn>
                 </div>
               </div>

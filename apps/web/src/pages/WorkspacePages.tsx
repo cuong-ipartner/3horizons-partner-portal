@@ -58,24 +58,34 @@ export function MyRequestsPage() {
             <div className="col-span-1">Updated</div>
           </div>
           <div className="divide-y divide-cream-300/70">
-            {matchRequests.map((req) => (
-              <Link
-                key={req.id}
-                to={`/me/requests/${req.id}`}
-                className="grid gap-2 px-5 py-4 transition hover:bg-cream-100/60 lg:grid-cols-12 lg:items-center lg:gap-3"
-              >
-                <div className="lg:col-span-4">
-                  <p className="font-medium text-espresso-900">{req.title}</p>
-                  <p className="mt-0.5 text-xs text-espresso-500">{req.id}</p>
-                </div>
-                <div className="lg:col-span-2">
-                  <Badge tone={statusTone(req.status)}>{statusLabels[req.status]}</Badge>
-                </div>
-                <div className="text-sm text-espresso-600 lg:col-span-2">{req.owner}</div>
-                <div className="text-sm text-espresso-600 lg:col-span-3">{req.nextAction}</div>
-                <div className="text-xs text-espresso-500 lg:col-span-1">{req.updatedAt}</div>
-              </Link>
-            ))}
+            {matchRequests.length === 0 ? (
+              <div className="px-5 py-10">
+                <EmptyState
+                  title="Chưa có yêu cầu"
+                  body="Gửi yêu cầu kết nối mới để bắt đầu quy trình match."
+                  action={<ButtonLink to="/match">Yêu cầu kết nối</ButtonLink>}
+                />
+              </div>
+            ) : (
+              matchRequests.map((req) => (
+                <Link
+                  key={req.id}
+                  to={`/me/requests/${req.id}`}
+                  className="grid gap-2 px-5 py-4 transition hover:bg-cream-100/60 lg:grid-cols-12 lg:items-center lg:gap-3"
+                >
+                  <div className="lg:col-span-4">
+                    <p className="font-medium text-espresso-900">{req.title}</p>
+                    <p className="mt-0.5 text-xs text-espresso-500">{req.id}</p>
+                  </div>
+                  <div className="lg:col-span-2">
+                    <Badge tone={statusTone(req.status)}>{statusLabels[req.status]}</Badge>
+                  </div>
+                  <div className="text-sm text-espresso-600 lg:col-span-2">{req.owner}</div>
+                  <div className="text-sm text-espresso-600 lg:col-span-3">{req.nextAction}</div>
+                  <div className="text-xs text-espresso-500 lg:col-span-1">{req.updatedAt}</div>
+                </Link>
+              ))
+            )}
           </div>
         </div>
       </Container>
@@ -153,40 +163,50 @@ export function MyCollaborationsPage() {
           Workspace riêng mở sau khi 3HORIZONS xác nhận kết nối — theo trạng thái và hành động tiếp theo.
         </Lead>
 
-        <div className="mt-10 grid gap-5 lg:grid-cols-2">
-          {collaborations.map((col) => (
-            <Link key={col.id} to={`/me/collaborations/${col.id}`}>
-              <Card className="h-full p-6 transition hover:shadow-card">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    tone={
-                      col.status === 'active'
-                        ? 'success'
-                        : col.status === 'paused'
-                          ? 'warning'
-                          : 'neutral'
-                    }
-                  >
-                    {col.status}
-                  </Badge>
-                  <span className="text-xs text-espresso-500">{col.updatedAt}</span>
-                </div>
-                <h2 className="mt-3 text-lg font-semibold text-espresso-900">{col.title}</h2>
-                <p className="mt-1 text-sm text-espresso-500">{col.owner}</p>
-                <p className="mt-4 text-sm text-espresso-600">
-                  <span className="font-medium text-espresso-800">Next: </span>
-                  {col.nextAction}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {col.partners.map((slug) => {
-                    const p = getPartner(slug)
-                    return p ? <Badge key={slug}>{p.name}</Badge> : null
-                  })}
-                </div>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        {collaborations.length === 0 ? (
+          <div className="mt-10">
+            <EmptyState
+              title="Chưa có collaboration"
+              body="Workspace mở sau khi 3HORIZONS xác nhận match và gán engagement."
+              action={<ButtonLink to="/login">Vào portal đối tác</ButtonLink>}
+            />
+          </div>
+        ) : (
+          <div className="mt-10 grid gap-5 lg:grid-cols-2">
+            {collaborations.map((col) => (
+              <Link key={col.id} to={`/me/collaborations/${col.id}`}>
+                <Card className="h-full p-6 transition hover:shadow-card">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      tone={
+                        col.status === 'active'
+                          ? 'success'
+                          : col.status === 'paused'
+                            ? 'warning'
+                            : 'neutral'
+                      }
+                    >
+                      {col.status}
+                    </Badge>
+                    <span className="text-xs text-espresso-500">{col.updatedAt}</span>
+                  </div>
+                  <h2 className="mt-3 text-lg font-semibold text-espresso-900">{col.title}</h2>
+                  <p className="mt-1 text-sm text-espresso-500">{col.owner}</p>
+                  <p className="mt-4 text-sm text-espresso-600">
+                    <span className="font-medium text-espresso-800">Next: </span>
+                    {col.nextAction}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {col.partners.map((slug) => {
+                      const p = getPartner(slug)
+                      return p ? <Badge key={slug}>{p.name}</Badge> : null
+                    })}
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
       </Container>
     </Section>
   )

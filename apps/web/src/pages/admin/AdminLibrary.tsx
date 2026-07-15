@@ -1,214 +1,270 @@
-import { useRef, useState, type FormEvent } from 'react'
-import {
-  deleteLibraryDocument,
-  formatFileSize,
-  seedDemoLibraryPdfs,
-  setLibraryPublished,
-  uploadLibraryPdf,
-  useLibraryDocuments,
-} from '@/data/library-store'
-import { DEMO_STAFF_PERSONA, ensureStaffAuth } from '@/lib/auth'
-import { isSupabaseAuthEnabled, supabaseBackendLabel } from '@/lib/supabase'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   ActionBtn,
+  AdminBadge,
   AdminPageHeader,
   AdminTable,
   FilterBar,
   Td,
   Th,
   fieldClass,
-  AdminBadge,
 } from '@/components/admin/AdminUi'
+import {
+  ECOSYSTEM_LAYERS,
+  SERVICE_LINES,
+  deleteDocument,
+  listProductionDocuments,
+  setDocumentStatus,
+  uploadProductionDocument,
+  type DocAccess,
+  type DocStatus,
+  type ProductionDocument,
+} from '@/data/production-library'
+import { adminApi } from '@/lib/production-auth'
+import { formatFileSize } from '@/data/library-store'
 import { Link } from 'react-router-dom'
 
 export function AdminLibrary() {
-  const { docs, loading, error, refresh } = useLibraryDocuments(true)
+  const [docs, setDocs] = useState<ProductionDocument[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const [q, setQ] = useState('')
+  const [status, setStatus] = useState<DocStatus | ''>('')
+  const [layer, setLayer] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
   const [title, setTitle] = useState('')
-  const [tag, setTag] = useState('Nền tảng')
+  const [docType, setDocType] = useState('PDF')
+  const [ecosystemLayer, setEcosystemLayer] = useState(ECOSYSTEM_LAYERS[0])
+  const [serviceLine, setServiceLine] = useState(SERVICE_LINES[0])
+  const [tags, setTags] = useState('')
+  const [version, setVersion] = useState('1.0')
+  const [accessLevel, setAccessLevel] = useState<DocAccess>('partner')
+  const [docStatus, setDocStatus] = useState<DocStatus>('draft')
   const [summary, setSummary] = useState('')
   const [file, setFile] = useState<File | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [replaceId, setReplaceId] = useState<string | null>(null)
 
-  function flash(msg: string) {
-    setToast(msg)
+  function flash(m: string) {
+    setToast(m)
     window.setTimeout(() => setToast(null), 4000)
   }
 
-  async function ensureStaff() {
-    if (!isSupabaseAuthEnabled()) {
-      flash('Bật VITE_DATA_MODE=supabase và đăng nhập staff')
-      return false
-    }
-    const res = await ensureStaffAuth()
-    if (!res.ok) {
-      flash(`Staff: ${res.error}`)
-      return false
-    }
-    return true
-  }
+  const load = useCallback(async () => {
+    setLoading(true)
+    const res = await listProductionDocuments(
+      { q, status, layer, includeArchived: true },
+      { staffView: true },
+    )
+    setLoading(false)
+    setError(res.error)
+    setDocs(res.docs)
+  }, [q, status, layer])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   async function onUpload(e: FormEvent) {
     e.preventDefault()
     if (!file || !title.trim()) {
-      flash('Chọn PDF và nhập tiêu đề')
+      flash('Chọn file và nhập tiêu đề')
       return
     }
-    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      flash('Chỉ nhận file PDF')
-      return
-    }
-    setBusy(true)
-    if (!(await ensureStaff())) {
-      setBusy(false)
-      return
-    }
-    const res = await uploadLibraryPdf({
-      file,
-      title: title.trim(),
-      tag,
-      summary: summary.trim() || undefined,
-      published: true,
+    const res = await uploadProductionDocument(file, {
+      title,
+      docType,
+      ecosystemLayer,
+      serviceLine,
+      tags: tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean),
+      version,
+      status: docStatus,
+      accessLevel,
+      summary,
+      replaceDocumentId: replaceId || undefined,
     })
-    setBusy(false)
     if (res.error) {
       flash(res.error)
       return
     }
+    flash(replaceId ? 'Đã thay version mới' : 'Đã upload')
     setTitle('')
     setSummary('')
+    setTags('')
     setFile(null)
-    if (inputRef.current) inputRef.current.value = ''
-    await refresh()
-    flash(`Đã upload: ${res.doc?.title}`)
+    setReplaceId(null)
+    if (fileRef.current) fileRef.current.value = ''
+    void load()
   }
 
-  async function onSeed() {
-    setBusy(true)
-    if (!(await ensureStaff())) {
-      setBusy(false)
-      return
-    }
-    const res = await seedDemoLibraryPdfs()
-    setBusy(false)
-    await refresh()
-    flash(
-      res.error
-        ? res.error
-        : res.created
-          ? `Đã seed ${res.created} PDF demo`
-          : 'Seed: các tài liệu demo đã tồn tại',
-    )
+  async function purgeDemo() {
+    const res = await adminApi<{ removed_paths?: string[] }>('/api/admin/documents', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'purge_demo_files' }),
+    })
+    flash(res.error || `Purged demo files: ${(res.data?.removed_paths || []).length}`)
+    void load()
   }
 
   return (
     <div className="mx-auto max-w-7xl">
       <AdminPageHeader
-        title="Thư viện PDF (Storage)"
-        description="Bucket partner-library · metadata library_documents · partner đọc signed URL · staff upload."
+        title="Document library"
+        description="Upload, version, publish / unpublish / archive / delete. Partner library: /portal/documents"
       />
 
-      <div className="mb-4 rounded-2xl border border-portal-200 bg-portal-50/80 px-4 py-3 text-xs text-espresso-600">
-        <p className="font-medium text-portal-800">{supabaseBackendLabel()}</p>
-        <p className="mt-1">
-          Staff demo: {DEMO_STAFF_PERSONA.email} · Portal partner xem tại{' '}
-          <Link to="/portal/documents" className="font-medium text-portal-700 hover:underline">
-            /portal/documents
-          </Link>
-        </p>
-      </div>
-
-      {toast ? (
-        <div className="mb-4 rounded-xl border border-success/30 bg-success/10 px-4 py-2.5 text-sm text-success">
-          {toast}
+      {error ? (
+        <div className="mb-4 rounded-xl border border-terracotta-500/30 bg-terracotta-500/5 px-4 py-2 text-sm text-terracotta-600">
+          {error}
         </div>
       ) : null}
-      {error ? (
-        <div className="mb-4 rounded-xl border border-terracotta-500/30 bg-terracotta-500/5 px-4 py-2.5 text-sm text-terracotta-600">
-          {error}
+      {toast ? (
+        <div className="mb-4 rounded-xl border border-success/30 bg-success/10 px-4 py-2 text-sm text-success">
+          {toast}
         </div>
       ) : null}
 
       <form
         onSubmit={(e) => void onUpload(e)}
-        className="mb-6 grid gap-3 rounded-2xl border border-portal-200 bg-white p-5 shadow-sm sm:grid-cols-2"
+        className="mb-6 grid gap-3 rounded-2xl border border-portal-200 bg-white p-5 shadow-sm lg:grid-cols-3"
       >
-        <div className="sm:col-span-2">
-          <p className="text-sm font-semibold text-espresso-900">Upload PDF</p>
-          <p className="mt-0.5 text-xs text-espresso-500">Tối đa 25 MB · application/pdf</p>
-        </div>
-        <div className="sm:col-span-2">
-          <label className="mb-1 block text-xs font-medium text-espresso-600">Tiêu đề *</label>
-          <input
-            className={fieldClass() + ' w-full'}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="VD: SOP workshop chiến lược"
-            required
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-espresso-600">Tag</label>
-          <select
-            className={fieldClass() + ' w-full'}
-            value={tag}
-            onChange={(e) => setTag(e.target.value)}
-          >
-            <option>Nền tảng</option>
-            <option>Chuẩn mực</option>
-            <option>Mẫu</option>
-            <option>Insight</option>
-            <option>Engagement</option>
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-espresso-600">File PDF *</label>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="application/pdf,.pdf"
-            className="block w-full text-sm text-espresso-700 file:mr-3 file:rounded-lg file:border-0 file:bg-portal-100 file:px-3 file:py-2 file:text-xs file:font-medium file:text-portal-800"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="mb-1 block text-xs font-medium text-espresso-600">Tóm tắt</label>
-          <input
-            className={fieldClass() + ' w-full'}
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            placeholder="1–2 câu cho partner"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2 sm:col-span-2">
+        <p className="text-sm font-semibold text-espresso-900 lg:col-span-3">
+          {replaceId ? `Replace version — ${replaceId.slice(0, 8)}…` : 'Upload document'}
+        </p>
+        <input
+          className={fieldClass() + ' w-full lg:col-span-2'}
+          placeholder="Title *"
+          required
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+        <select className={fieldClass() + ' w-full'} value={docType} onChange={(e) => setDocType(e.target.value)}>
+          <option>PDF</option>
+          <option>DOCX</option>
+          <option>XLSX</option>
+          <option>PPTX</option>
+        </select>
+        <select
+          className={fieldClass() + ' w-full'}
+          value={ecosystemLayer}
+          onChange={(e) => setEcosystemLayer(e.target.value)}
+        >
+          {ECOSYSTEM_LAYERS.map((l) => (
+            <option key={l}>{l}</option>
+          ))}
+        </select>
+        <select
+          className={fieldClass() + ' w-full'}
+          value={serviceLine}
+          onChange={(e) => setServiceLine(e.target.value)}
+        >
+          {SERVICE_LINES.map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+        <input
+          className={fieldClass() + ' w-full'}
+          placeholder="Tags (comma-separated)"
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
+        />
+        <input
+          className={fieldClass() + ' w-full'}
+          placeholder="Version"
+          value={version}
+          onChange={(e) => setVersion(e.target.value)}
+        />
+        <select
+          className={fieldClass() + ' w-full'}
+          value={docStatus}
+          onChange={(e) => setDocStatus(e.target.value as DocStatus)}
+        >
+          <option value="draft">draft</option>
+          <option value="published">published</option>
+          <option value="archived">archived</option>
+        </select>
+        <select
+          className={fieldClass() + ' w-full'}
+          value={accessLevel}
+          onChange={(e) => setAccessLevel(e.target.value as DocAccess)}
+        >
+          <option value="partner">partner</option>
+          <option value="staff">staff</option>
+          <option value="authenticated">authenticated</option>
+          <option value="public">public</option>
+        </select>
+        <input
+          className={fieldClass() + ' w-full lg:col-span-2'}
+          placeholder="Summary"
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+        />
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,application/pdf"
+          className="text-sm lg:col-span-3"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
+        <div className="flex flex-wrap gap-2 lg:col-span-3">
           <ActionBtn variant="primary" type="submit">
-            {busy ? 'Đang xử lý…' : 'Upload lên Storage'}
+            {replaceId ? 'Upload new version' : 'Upload'}
           </ActionBtn>
-          <ActionBtn type="button" onClick={() => void onSeed()}>
-            Seed 3 PDF demo
+          {replaceId ? (
+            <ActionBtn type="button" onClick={() => setReplaceId(null)}>
+              Cancel replace
+            </ActionBtn>
+          ) : null}
+          <ActionBtn type="button" onClick={() => void purgeDemo()}>
+            Purge demo storage files
           </ActionBtn>
-          <ActionBtn type="button" onClick={() => void refresh()}>
-            Refresh
-          </ActionBtn>
+          <Link to="/portal/documents" className="text-xs font-medium text-portal-700 self-center">
+            Partner view →
+          </Link>
         </div>
       </form>
 
       <FilterBar>
-        <span className="text-xs text-espresso-500">
-          {loading ? 'Đang tải…' : `${docs.length} tài liệu`}
-          {busy ? ' · busy' : ''}
-        </span>
+        <input
+          className={fieldClass()}
+          placeholder="Search title"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <select
+          className={fieldClass()}
+          value={status}
+          onChange={(e) => setStatus(e.target.value as DocStatus | '')}
+        >
+          <option value="">All status</option>
+          <option value="draft">draft</option>
+          <option value="published">published</option>
+          <option value="archived">archived</option>
+        </select>
+        <select className={fieldClass()} value={layer} onChange={(e) => setLayer(e.target.value)}>
+          <option value="">All layers</option>
+          {ECOSYSTEM_LAYERS.map((l) => (
+            <option key={l} value={l}>
+              {l}
+            </option>
+          ))}
+        </select>
+        <ActionBtn onClick={() => void load()}>{loading ? '…' : 'Apply'}</ActionBtn>
       </FilterBar>
 
       <AdminTable>
         <thead>
           <tr>
-            <Th>Tài liệu</Th>
-            <Th>Tag</Th>
-            <Th>Size</Th>
+            <Th>Document</Th>
+            <Th>Layer / Service</Th>
+            <Th>Ver</Th>
+            <Th>Access</Th>
             <Th>Status</Th>
-            <Th>Path</Th>
+            <Th>Downloads</Th>
             <Th />
           </tr>
         </thead>
@@ -217,40 +273,91 @@ export function AdminLibrary() {
             <tr key={d.id} className="hover:bg-portal-50/40">
               <Td>
                 <p className="font-medium text-espresso-900">{d.title}</p>
-                {d.summary ? <p className="text-xs text-espresso-500">{d.summary}</p> : null}
+                <p className="text-[11px] text-espresso-500">
+                  {d.docType} · {formatFileSize(d.fileSize)} · {d.ownerName || '—'} ·{' '}
+                  {new Date(d.updatedAt).toLocaleDateString('vi-VN')}
+                </p>
+                {d.tags.length ? (
+                  <p className="mt-0.5 text-[10px] text-portal-600">{d.tags.join(' · ')}</p>
+                ) : null}
               </Td>
-              <Td className="text-xs">{d.tag}</Td>
-              <Td className="text-xs">{formatFileSize(d.fileSize)}</Td>
+              <Td className="text-xs">
+                <div>{d.ecosystemLayer || '—'}</div>
+                <div className="text-espresso-500">{d.serviceLine || '—'}</div>
+              </Td>
+              <Td className="text-xs font-mono">{d.version}</Td>
+              <Td className="text-xs">{d.accessLevel}</Td>
               <Td>
-                <AdminBadge tone={d.published ? 'ok' : 'warn'}>
-                  {d.published ? 'published' : 'draft'}
+                <AdminBadge
+                  tone={
+                    d.status === 'published' ? 'ok' : d.status === 'archived' ? 'neutral' : 'warn'
+                  }
+                >
+                  {d.status}
                 </AdminBadge>
               </Td>
-              <Td className="max-w-[10rem] truncate font-mono text-[10px] text-espresso-500">
-                {d.storagePath}
-              </Td>
+              <Td className="text-xs tabular-nums">{d.downloadCount}</Td>
               <Td>
                 <div className="flex flex-wrap gap-1">
+                  {d.status !== 'published' ? (
+                    <ActionBtn
+                      onClick={() =>
+                        void setDocumentStatus(d.id, 'published').then((e) => {
+                          flash(e || 'Published')
+                          void load()
+                        })
+                      }
+                    >
+                      Publish
+                    </ActionBtn>
+                  ) : (
+                    <ActionBtn
+                      onClick={() =>
+                        void setDocumentStatus(d.id, 'draft').then((e) => {
+                          flash(e || 'Unpublished')
+                          void load()
+                        })
+                      }
+                    >
+                      Unpublish
+                    </ActionBtn>
+                  )}
                   <ActionBtn
                     onClick={() =>
-                      void setLibraryPublished(d.id, !d.published).then((err) => {
-                        flash(err || (d.published ? 'Đã ẩn' : 'Đã publish'))
-                        void refresh()
+                      void setDocumentStatus(d.id, 'archived').then((e) => {
+                        flash(e || 'Archived')
+                        void load()
                       })
                     }
                   >
-                    {d.published ? 'Ẩn' : 'Publish'}
+                    Archive
+                  </ActionBtn>
+                  <ActionBtn
+                    onClick={() => {
+                      setReplaceId(d.id)
+                      setTitle(d.title)
+                      setVersion(`${d.versionNumber + 1}.0`)
+                      setEcosystemLayer(d.ecosystemLayer || ECOSYSTEM_LAYERS[0])
+                      setServiceLine(d.serviceLine || SERVICE_LINES[0])
+                      setTags(d.tags.join(', '))
+                      setAccessLevel(d.accessLevel)
+                      setDocStatus(d.status)
+                      setSummary(d.summary || '')
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                    }}
+                  >
+                    Replace
                   </ActionBtn>
                   <ActionBtn
                     variant="danger"
                     onClick={() =>
-                      void deleteLibraryDocument(d.id, d.storagePath).then((err) => {
-                        flash(err || 'Đã xóa')
-                        void refresh()
+                      void deleteDocument(d.id, d.storagePath).then((e) => {
+                        flash(e || 'Deleted')
+                        void load()
                       })
                     }
                   >
-                    Xóa
+                    Delete
                   </ActionBtn>
                 </div>
               </Td>
@@ -259,7 +366,7 @@ export function AdminLibrary() {
           {!docs.length && !loading ? (
             <tr>
               <Td className="text-sm text-espresso-500">
-                Chưa có PDF. Upload hoặc bấm “Seed 3 PDF demo” (cần staff session).
+                No documents — upload the first production file.
               </Td>
             </tr>
           ) : null}

@@ -14,8 +14,8 @@ type Props = {
  */
 export function RequireAuth({ children, role = 'partner' }: Props) {
   const location = useLocation()
-  const { session, ready } = useDemoSession()
-  const authed = isPortalAuthenticated()
+  const { session, sessionOrNull, ready } = useDemoSession()
+  const authed = isPortalAuthenticated() && Boolean(sessionOrNull)
 
   if (!ready) {
     return (

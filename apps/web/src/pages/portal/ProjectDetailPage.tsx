@@ -12,7 +12,7 @@ import {
 } from '@/components/portal/PortalUi'
 import { milestoneProgress, useProjectsState, type NetworkProject } from '@/data/projects-store'
 import { useDemoSession } from '@/hooks/useDemoSession'
-import { isAuthLocalFallback } from '@/lib/auth'
+
 import { cn } from '@/lib/cn'
 
 const statusVi: Record<string, { label: string; tone: 'success' | 'warning' | 'neutral' }> = {
@@ -51,8 +51,6 @@ export function ProjectDetailPage() {
   const highlight = search.get('m') // milestone label highlight
   const { session } = useDemoSession()
   const { projects, loading } = useProjectsState()
-  const localMode = isAuthLocalFallback()
-
   const project = projects.find((p) => p.id === projectId)
   const allowed =
     project && canAccess(project, session.partnerId, session.role === 'staff')
@@ -103,13 +101,6 @@ export function ProjectDetailPage() {
         description={project.nextAction || 'Engagement do 3HORIZONS điều phối.'}
         action={<PortalStatusPill tone={st.tone}>{st.label}</PortalStatusPill>}
       />
-
-      {localMode ? (
-        <div className="rounded-xl border border-amber-500/25 bg-amber-50/90 px-4 py-2.5 text-xs text-amber-950">
-          Phiên local — dữ liệu demo/localStorage. PDF Storage & RLS cloud cần đăng nhập Supabase
-          Auth.
-        </div>
-      ) : null}
 
       {/* Hero strip */}
       <div className="grid gap-4 sm:grid-cols-3">

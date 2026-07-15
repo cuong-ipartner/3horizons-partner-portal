@@ -1,76 +1,73 @@
 # 3HORIZONS Partner Network
 
 **Slug:** `3horizons-partner-portal`  
-**Target production:** https://partners.3horizons.vn  
-**Data:** Supabase (later) · **Host:** Cloudflare Pages (later)  
-**Now:** localhost demo with seed data  
+**Production domain:** https://partners.3horizons.vn  
+**Stack:** React + Vite + Supabase Auth/Postgres/Storage + Cloudflare Pages Functions  
 
 ---
 
-## Localhost demo (start here)
+## Production mode
+
+This portal is set up for **live operation**:
+
+- Real Supabase Auth login (no demo personas)
+- Document library with upload / version / publish / archive
+- Admin user lifecycle (invite, suspend, roles, reset password)
+- Empty seed data — no fake partners/users/projects in UI
+
+Ops runbook: [docs/production-ops.md](docs/production-ops.md)  
+Deploy: [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md)
+
+### Required env (Cloudflare Pages)
+
+**Build:**
+
+```bash
+VITE_SUPABASE_URL=https://<project>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon>
+```
+
+**Functions secrets:**
+
+```bash
+SUPABASE_SERVICE_ROLE_KEY=<service_role>
+# SUPABASE_URL optional if VITE_SUPABASE_URL is available to Functions
+```
+
+### Local
 
 ```powershell
-cd C:\Users\cuong\AI-Consulting-OS\clients\3horizons-partner-portal\apps\web
+cd apps\web
+copy .env.example .env   # set VITE_SUPABASE_*
 npm install
 npm run dev
 ```
 
-Open:
-
 | Page | URL |
 |------|-----|
-| Partner Network | http://localhost:5173/ |
+| Public site | http://localhost:5173/ |
 | Login | http://localhost:5173/login |
-| Portal dashboard | http://localhost:5173/portal |
+| Partner portal | http://localhost:5173/portal |
+| Admin OS | http://localhost:5173/admin |
 
-**Sign in:** any email + password (or Google button) → enters portal (UI demo, no real auth yet).
+Accounts are invited by staff (Admin → Users). Taxonomy pages (problems/layers/services) remain as product content; directories for partners/insights/requests start empty until real records exist.
 
-Yellow banner = **seed mode** (no Supabase connected).
-
----
-
-## Roadmap to production
-
-```text
-1. Localhost demo (UI + seed)     ← you are here
-2. Supabase project + schema + RLS
-3. Wire Auth + replace seed reads
-4. Cloudflare Pages deploy
-5. Domain partners.3horizons.vn
-```
-
-| Doc | Path |
-|-----|------|
-| Architecture | [docs/architecture.md](docs/architecture.md) |
-| Cloudflare deploy | [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md) |
-| Information architecture | [docs/information-architecture.md](docs/information-architecture.md) |
-| Status | [docs/status.md](docs/status.md) |
-
----
-
-## Env
-
-Copy `apps/web/.env.example` → `apps/web/.env` (already set for seed demo).
-
-```bash
-VITE_DATA_MODE=seed
-VITE_SITE_URL=http://localhost:5173
-# Later:
-# VITE_DATA_MODE=supabase
-# VITE_SUPABASE_URL=...
-# VITE_SUPABASE_ANON_KEY=...
-```
-
-Never commit real keys. `.env` is gitignored.
-
----
-
-## Production build (local check)
+### Build check
 
 ```powershell
 cd apps\web
 npm run build
-npm run preview
 ```
 
-Deploy to Cloudflare only after confirmation — see `docs/deploy-cloudflare.md`.
+---
+
+## Key docs
+
+| Doc | Path |
+|-----|------|
+| Production ops | [docs/production-ops.md](docs/production-ops.md) |
+| Supabase setup | [docs/supabase-setup.md](docs/supabase-setup.md) |
+| Cloudflare deploy | [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md) |
+| Architecture | [docs/architecture.md](docs/architecture.md) |
+
+Never commit service-role keys or `.env`.

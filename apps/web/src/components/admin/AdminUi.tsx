@@ -122,11 +122,13 @@ export function ActionBtn({
   onClick,
   variant = 'ghost',
   type = 'button',
+  disabled,
 }: {
   children: ReactNode
   onClick?: () => void
   variant?: 'ghost' | 'primary' | 'danger'
   type?: 'button' | 'submit' | 'reset'
+  disabled?: boolean
 }) {
   const v = {
     ghost: 'border-portal-200 text-portal-800 hover:bg-portal-50',
@@ -137,8 +139,9 @@ export function ActionBtn({
     <button
       type={type}
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        'inline-flex h-8 items-center rounded-lg border px-2.5 text-xs font-medium transition',
+        'inline-flex h-8 items-center rounded-lg border px-2.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50',
         v[variant],
       )}
     >

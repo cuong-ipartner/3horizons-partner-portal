@@ -62,96 +62,7 @@ export type CreateProjectInput = {
   requestId?: string
 }
 
-const SEED_PROJECTS: NetworkProject[] = [
-  {
-    id: 'col-310',
-    title: 'Kích hoạt đối tác 3HVN',
-    status: 'active',
-    owners: ['Facilitator 3H', 'Cuong Doan'],
-    members: [
-      { partnerId: 'cuong-doan', displayName: 'Cuong Doan', role: 'partner' },
-      { partnerId: 'staff-3h', displayName: 'Facilitator 3H', role: 'facilitator' },
-    ],
-    nextAction: 'Xác nhận agenda workshop tuần 21/07',
-    dueDate: '2026-08-30',
-    milestones: [
-      { label: 'Kickoff onboarding', done: true, due: '2026-06-01' },
-      { label: 'Checklist hồ sơ', done: true, due: '2026-06-20' },
-      { label: 'Workshop kích hoạt', done: false, due: '2026-07-21' },
-      { label: 'Bàn giao SOP', done: false, due: '2026-08-15' },
-    ],
-    files: 8,
-    updates: 5,
-    updatedAt: '2026-07-13',
-    createdAt: '2026-06-01',
-  },
-  {
-    id: 'col-221',
-    title: 'Chuỗi workshop làm rõ chiến lược',
-    status: 'active',
-    owners: ['Lan Chi', 'Facilitator 3H'],
-    members: [
-      { partnerId: 'lan-pham', displayName: 'Lan Phạm', role: 'partner' },
-      { partnerId: 'staff-3h', displayName: 'Facilitator 3H', role: 'facilitator' },
-    ],
-    nextAction: 'Xác nhận agenda workshop tuần 21/07',
-    dueDate: '2026-08-15',
-    milestones: [
-      { label: 'Discovery call', done: true, due: '2026-06-28' },
-      { label: 'Phỏng vấn lãnh đạo', done: true, due: '2026-07-05' },
-      { label: 'Workshop 1 — lựa chọn', done: false, due: '2026-07-21' },
-      { label: 'Bản chiến lược 1 trang', done: false, due: '2026-08-01' },
-    ],
-    files: 12,
-    updates: 8,
-    requestId: 'req-1021',
-    updatedAt: '2026-07-13',
-    createdAt: '2026-06-20',
-  },
-  {
-    id: 'col-198',
-    title: 'Phục hồi thực thi — danh mục số',
-    status: 'paused',
-    owners: ['Lan Chi'],
-    members: [
-      { partnerId: 'erik-sundberg', displayName: 'Erik Sundberg', role: 'partner' },
-      { partnerId: 'staff-3h', displayName: 'Facilitator 3H', role: 'facilitator' },
-    ],
-    nextAction: 'Tiếp tục sau rà soát ngân sách Q3',
-    dueDate: '2026-09-30',
-    milestones: [
-      { label: 'Baseline', done: true },
-      { label: 'Cadence design', done: true },
-      { label: 'KPI ownership', done: false, due: '2026-08-10' },
-      { label: 'Pilot war-room', done: false },
-    ],
-    files: 6,
-    updates: 4,
-    requestId: 'req-0990',
-    updatedAt: '2026-06-30',
-    createdAt: '2026-05-10',
-  },
-  {
-    id: 'col-175',
-    title: 'Family council setup',
-    status: 'archived',
-    owners: ['Hải Long'],
-    members: [
-      { partnerId: 'david-tran', displayName: 'David Trần', role: 'partner' },
-      { partnerId: 'staff-3h', displayName: 'Facilitator 3H', role: 'facilitator' },
-    ],
-    nextAction: 'Đã lưu trữ — engagement hoàn tất',
-    dueDate: '2026-04-30',
-    milestones: [
-      { label: 'Charter draft', done: true },
-      { label: 'Council launch', done: true },
-    ],
-    files: 20,
-    updates: 15,
-    updatedAt: '2026-04-30',
-    createdAt: '2026-02-01',
-  },
-]
+const SEED_PROJECTS: NetworkProject[] = []
 
 function notify() {
   window.dispatchEvent(new Event(UPDATED_EVENT))
@@ -192,21 +103,16 @@ export function loadAllProjects(): NetworkProject[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
-      saveAllProjects(SEED_PROJECTS)
-      return SEED_PROJECTS.map((p) => ({ ...p, members: [...p.members], milestones: [...p.milestones] }))
+      return []
     }
     const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return [...SEED_PROJECTS]
+    if (!Array.isArray(parsed)) return []
     const list = parsed
       .map((item) => normalizeProject(item as Partial<NetworkProject>))
       .filter((p): p is NetworkProject => p != null)
-    return list.length ? list : [...SEED_PROJECTS]
+    return list
   } catch {
-    return SEED_PROJECTS.map((p) => ({
-      ...p,
-      members: [...p.members],
-      milestones: [...p.milestones],
-    }))
+    return []
   }
 }
 

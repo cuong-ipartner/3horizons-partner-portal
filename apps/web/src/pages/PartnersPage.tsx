@@ -191,19 +191,29 @@ export function PartnersDirectoryPage() {
         </Card>
 
         <p className="mt-6 text-sm text-espresso-500">
-          Showing {filtered.length} of {partners.length} partners
+          {partners.length
+            ? `Showing ${filtered.length} of ${partners.length} partners`
+            : 'Directory đang được cập nhật — chỉ hiển thị đối tác đã publish.'}
         </p>
 
         {filtered.length === 0 ? (
           <div className="mt-6">
             <EmptyState
-              title="Không có đối tác khớp bộ lọc"
-              body="Try clearing filters or start with a problem for guided matching."
+              title={
+                partners.length === 0
+                  ? 'Chưa có đối tác công khai'
+                  : 'Không có đối tác khớp bộ lọc'
+              }
+              body={
+                partners.length === 0
+                  ? 'Hồ sơ đối tác verified sẽ xuất hiện tại đây sau khi 3HORIZONS publish.'
+                  : 'Thử xóa bộ lọc hoặc bắt đầu từ vấn đề để được gợi ý.'
+              }
               action={
                 <div className="flex flex-wrap justify-center gap-3">
-                  <ButtonLink to="/problems">Tìm theo vấn đề</ButtonLink>
-                  <ButtonLink to="/match" variant="outline">
-                    Yêu cầu kết nối
+                  <ButtonLink to="/join">Đăng ký làm đối tác</ButtonLink>
+                  <ButtonLink to="/login" variant="outline">
+                    Đăng nhập portal
                   </ButtonLink>
                 </div>
               }
