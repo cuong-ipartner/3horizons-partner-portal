@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { ChevronDown, Menu, X } from 'lucide-react'
-import { DemoModeBanner } from '@/components/DemoModeBanner'
 import { ButtonLink, Container } from '@/components/ui'
 import { brand, footerVi, headerNav } from '@/content/site-vi'
 import { cn } from '@/lib/cn'
@@ -92,7 +91,6 @@ export function Layout() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <DemoModeBanner />
       <header className="sticky top-0 z-40 border-b border-cream-300/70 bg-cream-50/95 backdrop-blur-md">
         <Container className="flex h-16 items-center justify-between gap-4 lg:h-[4.25rem]">
           <Link to="/" className="flex items-center gap-2.5">

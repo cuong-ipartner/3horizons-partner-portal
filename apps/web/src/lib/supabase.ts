@@ -62,12 +62,11 @@ export function getSupabaseStatus(): SupabaseReady | SupabaseNotReady {
   }
 }
 
-/** Human-readable summary for admin/debug banners */
+/** Human-readable summary for login / admin debug (no "demo seed" wording). */
 export function supabaseBackendLabel(): string {
   const st = getSupabaseStatus()
-  if (!st.ready) return 'Seed + localStorage (chưa gắn Supabase)'
-  if (st.usingSeedFallback) return `Supabase env OK nhưng VITE_DATA_MODE=seed — ${st.url}`
-  return `Supabase — ${st.url}`
+  if (!st.ready) return 'Supabase chưa cấu hình (VITE_SUPABASE_URL / ANON_KEY)'
+  return `Supabase · production`
 }
 
 /** True when app should use Auth + remote tables. */
