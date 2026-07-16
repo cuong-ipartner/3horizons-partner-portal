@@ -35,7 +35,6 @@ import { SimpleAdminPage } from '@/pages/admin/SimpleAdminPage'
 import { AdminDashboard } from '@/pages/admin/AdminDashboard'
 import { AdminUsers } from '@/pages/admin/AdminUsers'
 import { AdminPartners } from '@/pages/admin/AdminPartners'
-import { AdminMatches } from '@/pages/admin/AdminMatches'
 import { AdminProjects } from '@/pages/admin/AdminProjects'
 import { AdminContent } from '@/pages/admin/AdminContent'
 import { AdminLibrary } from '@/pages/admin/AdminLibrary'
@@ -61,7 +60,6 @@ function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="partners" element={<AdminPartners />} />
-          <Route path="matches" element={<AdminMatches />} />
           <Route path="projects" element={<AdminProjects />} />
           <Route path="content" element={<AdminContent />} />
           <Route path="content/homepage" element={<SimpleAdminPage />} />

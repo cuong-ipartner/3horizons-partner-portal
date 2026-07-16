@@ -14,7 +14,6 @@ import {
   Shield,
   Users,
   X,
-  ClipboardList,
   Home,
 } from 'lucide-react'
 import { useDemoSession } from '@/hooks/useDemoSession'
@@ -26,7 +25,6 @@ const nav = [
   { to: '/admin', label: 'Tổng quan', icon: LayoutDashboard, end: true },
   { to: '/admin/users', label: 'Người dùng', icon: Users },
   { to: '/admin/partners', label: 'Đối tác', icon: Handshake },
-  { to: '/admin/matches', label: 'Yêu cầu match', icon: ClipboardList },
   { to: '/admin/projects', label: 'Dự án', icon: Briefcase },
   { to: '/admin/content', label: 'Nội dung', icon: FileStack },
   { to: '/admin/library', label: 'Documents', icon: FileText },
