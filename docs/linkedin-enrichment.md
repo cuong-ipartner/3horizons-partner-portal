@@ -1,21 +1,22 @@
-# LinkedIn / Facebook enrichment
+# LinkedIn / Facebook enrichment (optional API)
 
-## Vì sao trước đây “import sai”?
+## Join flow (production)
 
-Bản demo cũ **tự suy title/company/bio** từ URL (giả lập) → không đúng hồ sơ thật.
+**`/join` không còn import LinkedIn/Facebook.**  
+Partner nhập hồ sơ thủ công; URL LinkedIn/Facebook (nếu có) chỉ là field tuỳ chọn.
 
-## Cách hoạt động hiện tại
+API `POST /api/social-enrich` vẫn có thể dùng sau (admin tools / future), không gắn UI join.
 
-`POST /api/social-enrich` (server):
+## Proxycurl (server, optional)
+
+`POST /api/social-enrich`:
 
 | Có `PROXYCURL_API_KEY`? | Kết quả |
 |-------------------------|---------|
-| **Có** | Gọi Proxycurl Person Profile → name, headline, occupation, experience, certs, avatar… (public API) |
-| **Không** | Chỉ parse `/in/{handle}`, thử ảnh `unavatar.io`, **không bịa** title/company |
+| **Có** | Proxycurl Person Profile → name, headline, experience… |
+| **Không** | Chỉ parse handle — không bịa title/company |
 
-Facebook: chỉ tín hiệu identity phụ.
-
-Partner **luôn** rà soát màn Review trước khi gửi. Không auto-publish.
+Không auto-publish.
 
 ## Bật import LinkedIn thật (local)
 
