@@ -7,7 +7,7 @@ import {
   requestPasswordReset,
   type LoginAudience,
 } from '@/lib/production-auth'
-import { isSupabaseAuthEnabled, supabaseBackendLabel } from '@/lib/supabase'
+import { isSupabaseAuthEnabled } from '@/lib/supabase'
 import { cn } from '@/lib/cn'
 
 type Props = {
@@ -116,12 +116,13 @@ export function LoginPage({ audience = 'partner' }: Props) {
                   ? 'Dành cho super_admin và staff 3HORIZONS — quản trị users, documents, projects.'
                   : 'Cổng workspace đối tác — tài khoản được 3HORIZONS mời.'}
               </p>
-              <p className="mt-2 text-[11px] text-portal-700">{supabaseBackendLabel()}</p>
             </div>
 
             {!supabaseOn ? (
               <div className="mt-4 rounded-xl border border-terracotta-500/30 bg-terracotta-500/5 px-3 py-2 text-xs text-terracotta-600">
-                Supabase chưa cấu hình trên bản build. Kiểm tra biến VITE_SUPABASE_* trên Cloudflare.
+                Hệ thống auth chưa sẵn sàng trên bản build này. Administrator: kiểm tra Cloudflare
+                Production env VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY rồi redeploy (Deploy command
+                để trống). Domain partners.3horizons.vn phải trỏ deployment mới.
               </div>
             ) : null}
 

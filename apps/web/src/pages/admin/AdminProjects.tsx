@@ -4,7 +4,6 @@ import {
   createProject,
   partnerLabels,
   removePartner,
-  resetProjectsToSeed,
   setProjectStatus,
   useProjectsState,
   type NetworkProject,
@@ -22,7 +21,7 @@ import {
 } from '@/components/admin/AdminUi'
 import { cn } from '@/lib/cn'
 import { ensureStaffAuth } from '@/lib/auth'
-import { isSupabaseAuthEnabled, supabaseBackendLabel } from '@/lib/supabase'
+import { isSupabaseAuthEnabled } from '@/lib/supabase'
 import { Link } from 'react-router-dom'
 
 const statusVi: Record<ProjectStatus, string> = {
@@ -161,21 +160,21 @@ export function AdminProjects() {
     <div className="mx-auto max-w-7xl">
       <AdminPageHeader
         title="Dự án & collaboration"
-        description="Tạo / gán partner / status. Supabase RLS: staff full; partner chỉ thấy membership."
+        description="Tạo engagement, gán partner (slug), đổi status. Partner chỉ thấy project mình được gán."
       />
 
-      <div className="mb-4 rounded-2xl border border-portal-200 bg-portal-50/80 px-4 py-3 text-sm text-espresso-700">
-        <p className="font-medium text-portal-800">
-          Backend: <span className="font-semibold">{backend}</span>
-          {loading ? ' · loading…' : ''}
-          {busy ? ' · busy…' : ''}
+      <div className="mb-4 rounded-2xl border border-portal-200 bg-white px-4 py-3 text-sm text-espresso-700 shadow-sm">
+        <p className="font-medium text-espresso-900">
+          Nguồn dữ liệu: <span className="font-semibold">{backend === 'supabase' ? 'Supabase' : backend}</span>
+          {loading ? ' · đang tải…' : ''}
+          {busy ? ' · đang xử lý…' : ''}
         </p>
         <p className="mt-1 text-xs leading-relaxed text-espresso-500">
-          {supabaseBackendLabel()}. Cần{' '}
+          Cần{' '}
           <Link to="/admin/login" className="font-medium text-portal-700 hover:underline">
             đăng nhập staff
-          </Link>{' '}
-          (tài khoản thật, role staff). Partner slug = profiles.partner_slug.
+          </Link>
+          . Partner slug = profiles.partner_slug (gán membership).
         </p>
         {error ? <p className="mt-1 text-xs text-terracotta-600">{error}</p> : null}
       </div>
@@ -203,16 +202,6 @@ export function AdminProjects() {
           }}
         >
           Refresh
-        </ActionBtn>
-        <ActionBtn
-          onClick={() => {
-            resetProjectsToSeed()
-            setSelectedId(null)
-            void refresh()
-            flash('Đã xoá local cache projects (không xoá Supabase)')
-          }}
-        >
-          Clear local cache
         </ActionBtn>
       </FilterBar>
 
