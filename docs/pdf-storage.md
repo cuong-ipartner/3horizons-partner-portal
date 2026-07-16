@@ -1,60 +1,32 @@
-# PDF Storage — Partner library
+# PDF / Document library (production)
 
-## Stack
+## Architecture
 
-| Layer | Detail |
+| Piece | Detail |
 |-------|--------|
-| Bucket | `partner-library` (private) |
-| Metadata | `public.library_documents` |
-| Access | Partner: signed URL (1h) · Staff: upload/delete/publish |
-| MIME | `application/pdf` · max 25 MB |
+| Storage bucket | `partner-library` (private) |
+| Metadata | `library_documents` (+ versions, activity) |
+| Staff | `/admin/library` — upload, version, publish, archive, delete |
+| Partner | `/portal/documents` — published docs via **signed URL** |
+| Auth | Staff: `/admin/login` · Partner: `/login` |
 
-## Setup
+## Cloudflare build env (required)
 
-1. Migration: `supabase/migrations/20260714160000_library_storage.sql`  
-   ```bash
-   supabase db push
-   ```
-2. App env: `VITE_DATA_MODE=supabase` + URL + anon key  
-3. Auth: staff profile `role` in `partner_manager` / `super_admin` / … (`is_staff`)  
-4. Partner login required to list + open PDFs (RLS + storage select)
+```text
+VITE_SUPABASE_URL=https://twrtfsykittmfrhkjxkn.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon public>
+```
 
-## Admin
+Without these baked at **build** time, the app cannot open Storage (UI will say Supabase not configured). Redeploy after setting.
 
-URL: `/admin/library`
+## Demo seed
 
-- **Upload PDF** — title, tag, file  
-- **Seed 3 PDF demo** — generates minimal PDFs client-side and uploads  
-- Publish / ẩn / xóa  
+**Removed.** Do not use `staff@partners.3horizons.vn` demo login or “Seed 3 PDF”. Upload real files only.
 
-Staff demo: `staff@partners.3horizons.vn` / `Demo3H!2026` (tự login từ nút seed/upload).
-
-## Partner
-
-URL: `/portal/documents`
-
-- List `published` rows  
-- **Xem PDF** → `createSignedUrl` → iframe + download / open tab  
-
-## Code
-
-| File | Role |
-|------|------|
-| `src/data/library-store.ts` | list, upload, signed URL, seed, delete |
-| `src/lib/pdf.ts` | minimal PDF generator for seed |
-| `src/pages/admin/AdminLibrary.tsx` | staff UI |
-| `src/pages/portal/PortalPages.tsx` | DocumentsPage |
-| `src/components/portal/DocumentPreview.tsx` | iframe viewer |
-
-## Security notes
-
-- Bucket **not public** — always signed URL  
-- Staff-only write via `is_staff(auth.uid())`  
-- Never put `service_role` in Vite  
-- Rotate signed URL expiry as needed (default 3600s)
+Cleanup leftovers: Admin → **Settings** → purge demo storage paths.
 
 ## Ops
 
-- Replace seed PDFs with brand-designed files via Admin upload  
-- Optional: path convention `docs/{slug}-{id}.pdf`  
-- Backup: Supabase Storage + table dump with project backups  
+1. Login staff at `/admin/login`
+2. Admin → Library → upload PDF + metadata → **publish**
+3. Partner login → `/portal/documents` → signed download

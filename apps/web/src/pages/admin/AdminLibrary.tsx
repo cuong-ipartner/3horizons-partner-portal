@@ -20,8 +20,8 @@ import {
   type DocStatus,
   type ProductionDocument,
 } from '@/data/production-library'
-import { adminApi } from '@/lib/production-auth'
 import { formatFileSize } from '@/data/library-store'
+import { isSupabaseAuthEnabled } from '@/lib/supabase'
 import { Link } from 'react-router-dom'
 
 export function AdminLibrary() {
@@ -101,21 +101,37 @@ export function AdminLibrary() {
     void load()
   }
 
-  async function purgeDemo() {
-    const res = await adminApi<{ removed_paths?: string[] }>('/api/admin/documents', {
-      method: 'POST',
-      body: JSON.stringify({ action: 'purge_demo_files' }),
-    })
-    flash(res.error || `Purged demo files: ${(res.data?.removed_paths || []).length}`)
-    void load()
-  }
+  const supabaseOn = isSupabaseAuthEnabled()
 
   return (
     <div className="mx-auto max-w-7xl">
       <AdminPageHeader
-        title="Document library"
-        description="Upload, version, publish / unpublish / archive / delete. Partner library: /portal/documents"
+        title="Thư viện tài liệu"
+        description="Upload · version · publish / unpublish / archive / delete. Partner xem file đã publish tại /portal/documents (signed URL)."
       />
+
+      <div className="mb-4 rounded-2xl border border-portal-200 bg-white px-4 py-3 text-xs text-espresso-600 shadow-sm">
+        <p className="font-medium text-espresso-900">
+          Storage: bucket <code className="font-mono">partner-library</code> · metadata{' '}
+          <code className="font-mono">library_documents</code>
+        </p>
+        <p className="mt-1">
+          {supabaseOn
+            ? 'Supabase: đã cấu hình — upload & tải storage hoạt động khi đăng nhập staff.'
+            : 'Supabase: thiếu VITE_SUPABASE_* trên Cloudflare build — set env Production rồi redeploy.'}
+        </p>
+        <p className="mt-1">
+          Đăng nhập admin:{' '}
+          <Link to="/admin/login" className="font-medium text-portal-700 hover:underline">
+            /admin/login
+          </Link>
+          {' · '}
+          Portal partner:{' '}
+          <Link to="/portal/documents" className="font-medium text-portal-700 hover:underline">
+            /portal/documents
+          </Link>
+        </p>
+      </div>
 
       {error ? (
         <div className="mb-4 rounded-xl border border-terracotta-500/30 bg-terracotta-500/5 px-4 py-2 text-sm text-terracotta-600">
@@ -212,18 +228,18 @@ export function AdminLibrary() {
         />
         <div className="flex flex-wrap gap-2 lg:col-span-3">
           <ActionBtn variant="primary" type="submit">
-            {replaceId ? 'Upload new version' : 'Upload'}
+            {replaceId ? 'Upload version mới' : 'Upload'}
           </ActionBtn>
           {replaceId ? (
             <ActionBtn type="button" onClick={() => setReplaceId(null)}>
-              Cancel replace
+              Hủy replace
             </ActionBtn>
           ) : null}
-          <ActionBtn type="button" onClick={() => void purgeDemo()}>
-            Purge demo storage files
-          </ActionBtn>
-          <Link to="/portal/documents" className="text-xs font-medium text-portal-700 self-center">
-            Partner view →
+          <Link to="/portal/documents" className="self-center text-xs font-medium text-portal-700">
+            Xem góc partner →
+          </Link>
+          <Link to="/admin/settings" className="self-center text-xs font-medium text-espresso-500">
+            Cleanup storage (Settings)
           </Link>
         </div>
       </form>
@@ -366,7 +382,7 @@ export function AdminLibrary() {
           {!docs.length && !loading ? (
             <tr>
               <Td className="text-sm text-espresso-500">
-                No documents — upload the first production file.
+                Chưa có tài liệu — upload file production đầu tiên (không seed demo).
               </Td>
             </tr>
           ) : null}

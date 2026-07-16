@@ -1,7 +1,6 @@
 /**
  * Supabase browser client.
- * Localhost default: seed / localStorage (see useSeedData()).
- * When VITE_DATA_MODE=supabase + URL/key set, createClient is available.
+ * Requires VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY (baked at build on CF Pages).
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
@@ -42,7 +41,7 @@ export function getSupabaseStatus(): SupabaseReady | SupabaseNotReady {
   if (!isSupabaseConfigured()) {
     return {
       ready: false,
-      reason: 'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — using seed / localStorage demo.',
+      reason: 'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY on this build.',
       usingSeedFallback: true,
     }
   }

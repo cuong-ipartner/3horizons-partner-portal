@@ -96,7 +96,8 @@ export async function listProductionDocuments(
   if (!sb || !isSupabaseAuthEnabled()) {
     return {
       docs: [],
-      error: 'Supabase chưa cấu hình trên bản build (VITE_SUPABASE_URL / ANON_KEY).',
+      error:
+        'Chưa kết nối Supabase trên bản build. Cloudflare Pages cần VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY rồi redeploy.',
     }
   }
 
@@ -106,7 +107,7 @@ export async function listProductionDocuments(
   if (!session) {
     return {
       docs: [],
-      error: 'Cần đăng nhập bằng tài khoản thật (Supabase Auth).',
+      error: 'Phiên đăng nhập hết hạn. Đăng nhập lại tại /admin/login (staff) hoặc /login (partner).',
       needsAuth: true,
     }
   }

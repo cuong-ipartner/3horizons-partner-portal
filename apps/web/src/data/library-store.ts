@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { getSupabase, isSupabaseAuthEnabled } from '@/lib/supabase'
-import { buildSimplePdf, slugifyFilename } from '@/lib/pdf'
+import { slugifyFilename } from '@/lib/pdf'
 
 export const LIBRARY_BUCKET = 'partner-library'
 
@@ -196,75 +196,15 @@ export async function setLibraryPublished(
   return error?.message ?? null
 }
 
-/** Seed 3 demo PDFs into storage + metadata (staff only). */
+/** @deprecated Demo PDF seed removed for production. */
 export async function seedDemoLibraryPdfs(): Promise<{
   created: number
   error: string | null
 }> {
-  const sb = getSupabase()
-  if (!sb) return { created: 0, error: 'No Supabase client' }
-
-  const seeds = [
-    {
-      title: 'Bộ tài liệu nền — Mạng lưới đối tác',
-      tag: 'Nền tảng',
-      summary: 'Định vị problem-first, verified partner, collaboration có kiểm soát.',
-      lines: [
-        '3HORIZONS Partner Network — curated, not marketplace.',
-        'Private workspace: engagement, library, standing.',
-        'Matching is desk-coordinated. Partners do not self-match.',
-      ],
-    },
-    {
-      title: 'SOP: Điều phối workshop chiến lược',
-      tag: 'Chuẩn mực',
-      summary: 'Chuẩn bị — trong phòng — bàn giao 48h.',
-      lines: [
-        'Prep: one-page intent, decision list, roles.',
-        'In-room: timebox, capture decisions, protect scope.',
-        'Handoff in 48h: decisions, owners, due dates.',
-      ],
-    },
-    {
-      title: 'Brief chiến lược AI cho HĐQT',
-      tag: 'Insight',
-      summary: 'Ba câu hỏi board: value, risk, capability.',
-      lines: [
-        'Where does AI create measurable value?',
-        'How is risk governed?',
-        'What capability is needed in 12 months?',
-      ],
-    },
-  ]
-
-  let created = 0
-  for (const s of seeds) {
-    // skip if title already exists
-    const { data: existing } = await sb
-      .from('library_documents')
-      .select('id')
-      .eq('title', s.title)
-      .maybeSingle()
-    if (existing) continue
-
-    const blob = buildSimplePdf({
-      title: s.title,
-      lines: s.lines,
-      footer: '3HORIZONS · Partner library · Confidential',
-    })
-    const res = await uploadLibraryPdf({
-      file: blob,
-      title: s.title,
-      tag: s.tag,
-      summary: s.summary,
-      published: true,
-      filenameHint: slugifyFilename(s.title),
-    })
-    if (res.error) return { created, error: res.error }
-    created += 1
+  return {
+    created: 0,
+    error: 'Demo seed đã tắt. Upload tài liệu production tại Admin → Library.',
   }
-
-  return { created, error: null }
 }
 
 export function formatFileSize(bytes: number | null) {
