@@ -94,7 +94,6 @@ export function PartnerOnboardingPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitNotice, setSubmitNotice] = useState<string | null>(null)
-  const [sessionReady, setSessionReady] = useState(false)
 
   useEffect(() => {
     if (!done && app.status === 'draft') saveDraft(app)
@@ -144,7 +143,6 @@ export function PartnerOnboardingPage() {
       return
     }
     setApp(res.application)
-    setSessionReady(res.sessionReady)
     setSubmitNotice(res.notice ?? null)
     setDone(true)
     setStep(5)
