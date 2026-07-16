@@ -5,6 +5,7 @@ import {
   type AdminPartnerRecord,
 } from '@/data/admin-seed'
 import { listApplications, updateApplicationStatus } from '@/onboarding/storage'
+import { adminApi } from '@/lib/production-auth'
 import {
   ActionBtn,
   AdminBadge,
@@ -88,10 +89,37 @@ export function AdminPartners() {
     })
   }, [q, status, merged])
 
-  function act(msg: string, id?: string, nextStatus?: AdminPartnerRecord['status']) {
+  async function act(msg: string, id?: string, nextStatus?: AdminPartnerRecord['status']) {
     if (id && nextStatus && id.startsWith('app-')) {
       updateApplicationStatus(id, nextStatus, note)
       setTick((x) => x + 1)
+    }
+    // Approve / publish → activate Auth user (email confirm + status active)
+    if (
+      selected?.email &&
+      (nextStatus === 'verified' || nextStatus === 'published')
+    ) {
+      const res = await adminApi('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'activate_partner',
+          email: selected.email,
+        }),
+      })
+      if (res.error) {
+        setToast(`${msg} — nhưng activate login: ${res.error}`)
+        window.setTimeout(() => setToast(''), 5000)
+        return
+      }
+      setToast(`${msg} · Login đã Active (email confirmed)`)
+      window.setTimeout(() => setToast(''), 3500)
+      return
+    }
+    if (selected?.email && nextStatus === 'suspended') {
+      // find user via activate list — optional suspend by email through users page
+      setToast(msg)
+      window.setTimeout(() => setToast(''), 2500)
+      return
     }
     setToast(msg)
     window.setTimeout(() => setToast(''), 2500)
@@ -227,31 +255,37 @@ export function AdminPartners() {
                 <ActionBtn
                   variant="primary"
                   onClick={() =>
-                    act(`Đã approve / verify: ${selected.name}`, selected.id, 'verified')
+                    void act(`Đã approve / verify: ${selected.name}`, selected.id, 'verified')
                   }
                 >
-                  Approve / Verify
+                  Approve + Active login
                 </ActionBtn>
                 <ActionBtn
-                  onClick={() => act(`Đã publish: ${selected.name}`, selected.id, 'published')}
+                  onClick={() =>
+                    void act(`Đã publish: ${selected.name}`, selected.id, 'published')
+                  }
                 >
-                  Publish
+                  Publish + Active login
                 </ActionBtn>
                 <ActionBtn
                   variant="danger"
                   onClick={() =>
-                    act(`Đã reject / suspend: ${selected.name}`, selected.id, 'suspended')
+                    void act(`Đã reject / suspend: ${selected.name}`, selected.id, 'suspended')
                   }
                 >
                   Reject / Suspend
                 </ActionBtn>
                 <ActionBtn
                   onClick={() =>
-                    act('Đã lưu internal notes', selected.id, selected.status)
+                    void act('Đã lưu internal notes', selected.id, selected.status)
                   }
                 >
                   Lưu notes
                 </ActionBtn>
+                <p className="w-full text-[11px] text-espresso-500">
+                  Approve/Publish sẽ bật login portal (status active + email confirmed) cho{' '}
+                  <span className="font-medium">{selected.email}</span>.
+                </p>
               </div>
               {selected.linkedin ? (
                 <p className="text-[11px] text-espresso-500 break-all">LinkedIn: {selected.linkedin}</p>

@@ -89,7 +89,15 @@ export async function loginProduction(
     password,
   })
   if (error || !data.user) {
-    return { ok: false, error: error?.message || 'Đăng nhập thất bại' }
+    const raw = error?.message || 'Đăng nhập thất bại'
+    if (/email not confirmed|not confirmed/i.test(raw)) {
+      return {
+        ok: false,
+        error:
+          'Email chưa confirmed. Admin: Users → Activate (xác nhận email + mở active).',
+      }
+    }
+    return { ok: false, error: raw }
   }
 
   const { data: profile, error: pErr } = await sb
@@ -120,6 +128,14 @@ export async function loginProduction(
     }
   }
 
+  if (row.status === 'invited') {
+    await sb.auth.signOut()
+    return {
+      ok: false,
+      error:
+        'Tài khoản đang chờ admin duyệt. Sau khi Active mới đăng nhập portal được.',
+    }
+  }
   if (row.status === 'suspended') {
     await sb.auth.signOut()
     return { ok: false, error: 'Tài khoản đã bị tạm khóa. Liên hệ admin.' }
@@ -127,6 +143,13 @@ export async function loginProduction(
   if (row.status === 'archived') {
     await sb.auth.signOut()
     return { ok: false, error: 'Tài khoản đã lưu trữ. Liên hệ admin.' }
+  }
+  if (row.status && row.status !== 'active' && !isStaffRole(row.role || 'partner')) {
+    await sb.auth.signOut()
+    return {
+      ok: false,
+      error: `Tài khoản status=${row.status}. Cần active để đăng nhập.`,
+    }
   }
 
   const appRole = (row.role || 'partner') as AppRole

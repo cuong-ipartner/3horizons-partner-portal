@@ -159,11 +159,11 @@ export function PartnerOnboardingPage() {
               <Shield className="h-7 w-7" />
             </div>
             <Eyebrow className="mt-6">Xác minh 3HORIZONS</Eyebrow>
-            <PageTitle className="mt-3 text-3xl">Tài khoản đã tạo — hồ sơ chờ duyệt</PageTitle>
+            <PageTitle className="mt-3 text-3xl">Hồ sơ đã gửi — chờ admin Active</PageTitle>
             <Lead className="mx-auto mt-3">
-              Email <strong className="text-espresso-800">{app.email}</strong> đã được đăng ký trên
-              hệ thống. Bạn có thể đăng nhập portal bằng mật khẩu vừa tạo. Hồ sơ partner vẫn chờ
-              3HORIZONS verified trước khi publish directory.
+              Email <strong className="text-espresso-800">{app.email}</strong> đã được tạo (email
+              confirmed kỹ thuật). <strong>Chưa đăng nhập được</strong> cho đến khi admin bấm
+              Activate / duyệt Active. Sau đó dùng /login với mật khẩu vừa tạo.
             </Lead>
             {submitNotice ? (
               <p className="mt-3 text-sm text-portal-800">{submitNotice}</p>
@@ -171,24 +171,20 @@ export function PartnerOnboardingPage() {
             <ul className="mx-auto mt-6 max-w-sm space-y-2 text-left text-sm text-espresso-600">
               <li className="flex gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                Auth: login tại /login (cổng Partner)
+                Status hiện tại: invited (chờ duyệt)
               </li>
               <li className="flex gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                Role: partner · hồ sơ đã lưu trên Supabase
+                Admin → Users → Activate (hoặc Partners → Duyệt)
               </li>
               <li className="flex gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                Admin duyệt trước khi hiện directory công khai
+                Sau Active: đăng nhập /login → /portal
               </li>
             </ul>
             <p className="mt-4 text-xs text-espresso-500">Mã hồ sơ: {app.id}</p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              {sessionReady ? (
-                <ButtonLink to="/portal">Vào Partner Portal</ButtonLink>
-              ) : (
-                <ButtonLink to="/login">Đăng nhập Partner</ButtonLink>
-              )}
+              <ButtonLink to="/login">Đăng nhập (sau khi được Active)</ButtonLink>
               <ButtonLink to="/" variant="outline">
                 Về trang chủ
               </ButtonLink>

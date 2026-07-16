@@ -233,6 +233,7 @@ export async function onRequestPost(context: { request: Request; env: Env }) {
 
   if (action === 'set_status') {
     if (!body.user_id || !body.status) return json({ error: 'user_id and status required' }, 400)
+    const nextStatus = body.status
     const res = await fetch(`${url}/rest/v1/profiles?id=eq.${body.user_id}`, {
       method: 'PATCH',
       headers: {
@@ -241,11 +242,22 @@ export async function onRequestPost(context: { request: Request; env: Env }) {
         'Content-Type': 'application/json',
         Prefer: 'return=minimal',
       },
-      body: JSON.stringify({ status: body.status }),
+      body: JSON.stringify({
+        status: nextStatus,
+        verified: nextStatus === 'active' ? true : undefined,
+        standing_status: nextStatus === 'active' ? 'active' : undefined,
+      }),
     })
     if (!res.ok) return json({ error: await res.text() }, res.status)
 
-    const ban = body.status === 'suspended' || body.status === 'archived'
+    const ban = nextStatus === 'suspended' || nextStatus === 'archived'
+    // active → unban + force email confirmed (fixes "Email not confirmed")
+    const authPatch: Record<string, unknown> = {
+      ban_duration: ban ? '876600h' : 'none',
+    }
+    if (nextStatus === 'active') {
+      authPatch.email_confirm = true
+    }
     await fetch(`${url}/auth/v1/admin/users/${body.user_id}`, {
       method: 'PUT',
       headers: {
@@ -253,7 +265,7 @@ export async function onRequestPost(context: { request: Request; env: Env }) {
         Authorization: `Bearer ${service}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ ban_duration: ban ? '876600h' : 'none' }),
+      body: JSON.stringify(authPatch),
     })
 
     await audit(
@@ -262,9 +274,57 @@ export async function onRequestPost(context: { request: Request; env: Env }) {
       'user.set_status',
       'user',
       body.user_id,
-      { status: body.status },
+      { status: nextStatus },
     )
     return json({ ok: true })
+  }
+
+  /** Approve partner by email → profile active + email confirmed */
+  if (action === 'activate_partner') {
+    const email = String(body.email || '')
+      .trim()
+      .toLowerCase()
+    if (!email) return json({ error: 'email required' }, 400)
+
+    const listRes = await fetch(
+      `${url}/rest/v1/profiles?email=eq.${encodeURIComponent(email)}&select=id,email,role,status`,
+      { headers: { apikey: service, Authorization: `Bearer ${service}` } },
+    )
+    const rows = (await listRes.json()) as { id: string; email: string; role: string; status: string }[]
+    const row = rows[0]
+    if (!row) return json({ error: 'Profile not found for email' }, 404)
+
+    await fetch(`${url}/rest/v1/profiles?id=eq.${row.id}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: service,
+        Authorization: `Bearer ${service}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        status: 'active',
+        verified: true,
+        standing_status: 'active',
+        role: row.role || 'partner',
+      }),
+    })
+
+    await fetch(`${url}/auth/v1/admin/users/${row.id}`, {
+      method: 'PUT',
+      headers: {
+        apikey: service,
+        Authorization: `Bearer ${service}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email_confirm: true,
+        ban_duration: 'none',
+      }),
+    })
+
+    await audit({ url, service }, user, 'user.activate_partner', 'user', row.id, { email })
+    return json({ ok: true, user_id: row.id, email, status: 'active' })
   }
 
   if (action === 'set_role') {
