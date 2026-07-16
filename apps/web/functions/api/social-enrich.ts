@@ -84,12 +84,17 @@ function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: jsonHeaders })
 }
 
-export async function onRequestGet() {
+export async function onRequestGet(context: { env: Env }) {
+  const hasKey = Boolean((context.env.PROXYCURL_API_KEY || '').trim())
   return json({
     ok: true,
     service: 'social-enrich',
     methods: ['POST'],
-    hint: 'POST { url, source } — LinkedIn via PROXYCURL_API_KEY when set.',
+    has_PROXYCURL_API_KEY: hasKey,
+    linkedin_import: hasKey ? 'live_proxycurl' : 'handle_only_no_title_company',
+    hint: hasKey
+      ? 'POST { url: "https://www.linkedin.com/in/..." } for real LinkedIn person fields.'
+      : 'Set secret PROXYCURL_API_KEY (Pages Production) or apps/web/.env for local, then redeploy/restart.',
   })
 }
 

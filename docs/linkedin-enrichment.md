@@ -38,10 +38,23 @@ npm run dev
 
 ## Production (Cloudflare Pages)
 
-Environment secret:
+```powershell
+cd apps\web
+npx wrangler pages secret put PROXYCURL_API_KEY --project-name=3horizons-partner-portal
+# paste key, Enter
 
-- `PROXYCURL_API_KEY`
-- (optional) `XAI_API_KEY` for Nexus
+# Redeploy Functions so secret is live (if needed):
+npx wrangler pages deploy dist --project-name=3horizons-partner-portal
+```
+
+Verify:
+
+```text
+GET https://3horizons-partner-portal.pages.dev/api/social-enrich
+→ { "has_PROXYCURL_API_KEY": true, "linkedin_import": "live_proxycurl" }
+```
+
+Also optional: `XAI_API_KEY` for Nexus.
 
 Function: `functions/api/social-enrich.ts`
 

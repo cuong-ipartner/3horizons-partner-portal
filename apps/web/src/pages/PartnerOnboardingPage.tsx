@@ -476,8 +476,10 @@ export function PartnerOnboardingPage() {
               ) : null}
 
               <p className="text-xs text-espresso-500">
-                LinkedIn không cho scrape tự do. Import đúng hồ sơ cần PROXYCURL_API_KEY (server).
-                Không có key: chỉ lấy handle + ảnh public nếu có — không bịa title/company.
+                LinkedIn chặn scrape tự do. Import title/company/experience thật qua Proxycurl
+                (secret server <code className="font-mono text-[10px]">PROXYCURL_API_KEY</code>
+                ). Local: <code className="font-mono text-[10px]">apps/web/.env</code> + restart.
+                Production: Cloudflare Pages secret. Không có key: chỉ handle — không bịa dữ liệu.
               </p>
 
               <Button type="button" variant="ghost" onClick={() => setStep(4)}>
@@ -523,9 +525,9 @@ export function PartnerOnboardingPage() {
                   ) : null}
                   {app.enrichment.isSimulated ? (
                     <p className="mt-2">
-                      LinkedIn chặn scrape tự do. Để lấy đúng title/company/experience, cấu hình
-                      PROXYCURL_API_KEY trong .env rồi restart server. Các field trống cần bạn điền
-                      tay trên form bên dưới.
+                      Chưa có import Proxycurl (thiếu PROXYCURL_API_KEY trên server). Local: thêm
+                      key vào apps/web/.env và restart dev. Production: wrangler pages secret put
+                      PROXYCURL_API_KEY rồi redeploy Functions. Field trống — điền tay bên dưới.
                     </p>
                   ) : (
                     <p className="mt-2 text-success">
