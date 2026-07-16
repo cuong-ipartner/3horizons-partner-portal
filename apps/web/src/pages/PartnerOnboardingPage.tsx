@@ -7,7 +7,8 @@ import {
   ChevronRight,
   Shield,
 } from 'lucide-react'
-import { loadDraft, saveDraft, submitApplication } from '@/onboarding/storage'
+import { registerPartnerAndSubmit } from '@/onboarding/register'
+import { loadDraft, saveDraft } from '@/onboarding/storage'
 import {
   emptyApplication,
   ENGAGEMENT_OPTIONS,
@@ -90,6 +91,10 @@ export function PartnerOnboardingPage() {
   })
   const [password, setPassword] = useState('')
   const [done, setDone] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitNotice, setSubmitNotice] = useState<string | null>(null)
+  const [sessionReady, setSessionReady] = useState(false)
 
   useEffect(() => {
     if (!done && app.status === 'draft') saveDraft(app)
@@ -115,18 +120,32 @@ export function PartnerOnboardingPage() {
       return Boolean(
         app.fullName.trim() && app.title.trim() && app.bio.trim() && app.enrichmentReviewed,
       )
-    if (step === 4) return app.confirmPublish
+    if (step === 4) return app.confirmPublish && !submitting
     return true
   }
 
-  function finish() {
-    const submitted = submitApplication({
-      ...app,
-      passwordSet: true,
-      enrichment: null,
-      enrichmentReviewed: true,
-    })
-    setApp(submitted)
+  async function finish() {
+    if (submitting) return
+    setSubmitting(true)
+    setSubmitError(null)
+    setSubmitNotice(null)
+    const res = await registerPartnerAndSubmit(
+      {
+        ...app,
+        passwordSet: true,
+        enrichment: null,
+        enrichmentReviewed: true,
+      },
+      password,
+    )
+    setSubmitting(false)
+    if (!res.ok) {
+      setSubmitError(res.error)
+      return
+    }
+    setApp(res.application)
+    setSessionReady(res.sessionReady)
+    setSubmitNotice(res.notice ?? null)
     setDone(true)
     setStep(5)
   }
@@ -140,28 +159,36 @@ export function PartnerOnboardingPage() {
               <Shield className="h-7 w-7" />
             </div>
             <Eyebrow className="mt-6">Xác minh 3HORIZONS</Eyebrow>
-            <PageTitle className="mt-3 text-3xl">Hồ sơ đã gửi — chờ verified</PageTitle>
+            <PageTitle className="mt-3 text-3xl">Tài khoản đã tạo — hồ sơ chờ duyệt</PageTitle>
             <Lead className="mx-auto mt-3">
-              Cảm ơn bạn. Hồ sơ đã được gửi ở trạng thái submitted. 3HORIZONS sẽ rà soát proof points,
-              expertise và fit. Badge verified chỉ xuất hiện sau khi được duyệt. Profile chưa tự publish.
+              Email <strong className="text-espresso-800">{app.email}</strong> đã được đăng ký trên
+              hệ thống. Bạn có thể đăng nhập portal bằng mật khẩu vừa tạo. Hồ sơ partner vẫn chờ
+              3HORIZONS verified trước khi publish directory.
             </Lead>
+            {submitNotice ? (
+              <p className="mt-3 text-sm text-portal-800">{submitNotice}</p>
+            ) : null}
             <ul className="mx-auto mt-6 max-w-sm space-y-2 text-left text-sm text-espresso-600">
               <li className="flex gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                Bạn đã tự nhập và xác nhận thông tin hồ sơ
+                Auth: login tại /login (cổng Partner)
               </li>
               <li className="flex gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                Admin có thể ghi notes / chỉnh trước khi publish
+                Role: partner · hồ sơ đã lưu trên Supabase
               </li>
               <li className="flex gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                Sau verified + publish mới hiện trong directory
+                Admin duyệt trước khi hiện directory công khai
               </li>
             </ul>
             <p className="mt-4 text-xs text-espresso-500">Mã hồ sơ: {app.id}</p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <ButtonLink to="/login">Đăng nhập workspace</ButtonLink>
+              {sessionReady ? (
+                <ButtonLink to="/portal">Vào Partner Portal</ButtonLink>
+              ) : (
+                <ButtonLink to="/login">Đăng nhập Partner</ButtonLink>
+              )}
               <ButtonLink to="/" variant="outline">
                 Về trang chủ
               </ButtonLink>
@@ -553,9 +580,15 @@ export function PartnerOnboardingPage() {
                 />
                 <span>
                   Tôi xác nhận gửi hồ sơ để 3HORIZONS xác minh. Badge verified chỉ sau khi được duyệt —
-                  không auto-publish.
+                  không auto-publish. Hệ thống sẽ tạo tài khoản login bằng email/mật khẩu bước 1.
                 </span>
               </label>
+
+              {submitError ? (
+                <div className="rounded-xl border border-terracotta-500/30 bg-terracotta-500/5 px-4 py-3 text-sm text-terracotta-600">
+                  {submitError}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -564,7 +597,7 @@ export function PartnerOnboardingPage() {
             <Button
               type="button"
               variant="ghost"
-              disabled={step <= 1}
+              disabled={step <= 1 || submitting}
               onClick={() => setStep((s) => Math.max(1, s - 1))}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -577,8 +610,12 @@ export function PartnerOnboardingPage() {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button type="button" disabled={!canNext()} onClick={finish}>
-                Gửi để 3HORIZONS verify
+              <Button
+                type="button"
+                disabled={!canNext()}
+                onClick={() => void finish()}
+              >
+                {submitting ? 'Đang tạo tài khoản…' : 'Tạo tài khoản & gửi hồ sơ'}
               </Button>
             )}
           </div>
