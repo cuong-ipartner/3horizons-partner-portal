@@ -13,6 +13,7 @@ import {
   Search,
   Shield,
   Users,
+  UserPlus,
   X,
   Home,
 } from 'lucide-react'
@@ -25,9 +26,10 @@ const nav = [
   { to: '/admin', label: 'Tổng quan', icon: LayoutDashboard, end: true },
   { to: '/admin/users', label: 'Người dùng', icon: Users },
   { to: '/admin/partners', label: 'Đối tác', icon: Handshake },
+  { to: '/admin/referrals', label: 'Referrals', icon: UserPlus },
   { to: '/admin/projects', label: 'Dự án', icon: Briefcase },
   { to: '/admin/content', label: 'Nội dung', icon: FileStack },
-  { to: '/admin/library', label: 'Documents', icon: FileText }, // simplified library
+  { to: '/admin/library', label: 'Documents', icon: FileText },
   { to: '/admin/roles', label: 'Roles', icon: Shield },
   { to: '/admin/audit', label: 'Audit logs', icon: Activity },
   { to: '/admin/settings', label: 'Settings', icon: Shield },

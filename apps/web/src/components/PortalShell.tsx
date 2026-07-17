@@ -16,6 +16,7 @@ import {
   Search,
   Shield,
   User,
+  UserPlus,
   X,
 } from 'lucide-react'
 import { Logo } from '@/components/Logo'
@@ -29,6 +30,7 @@ const sidebarItems = [
   { to: '/portal', label: 'Tổng quan', icon: LayoutDashboard, end: true },
   { to: '/portal/projects', label: 'Engagement', icon: FolderKanban },
   { to: '/portal/documents', label: 'Tài liệu', icon: FileText },
+  { to: '/portal/referrals', label: 'Giới thiệu', icon: UserPlus },
   { to: '/portal/training', label: 'Năng lực', icon: BookOpen },
   { to: '/portal/network', label: 'Hệ sinh thái', icon: Network },
   { to: '/portal/account', label: 'Hồ sơ', icon: User },

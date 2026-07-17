@@ -41,6 +41,12 @@ import { AdminLibrary } from '@/pages/admin/AdminLibrary'
 import { AdminRoles } from '@/pages/admin/AdminRoles'
 import { AdminAudit } from '@/pages/admin/AdminAudit'
 import { AdminSettings } from '@/pages/admin/AdminSettings'
+import { AdminReferrals, AdminReferralDetail } from '@/pages/admin/AdminReferrals'
+import {
+  PartnerReferralsListPage,
+  PartnerReferralNewPage,
+  PartnerReferralDetailPage,
+} from '@/pages/portal/ReferralPages'
 
 function App() {
   return (
@@ -60,6 +66,8 @@ function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="partners" element={<AdminPartners />} />
+          <Route path="referrals" element={<AdminReferrals />} />
+          <Route path="referrals/:referralId" element={<AdminReferralDetail />} />
           <Route path="projects" element={<AdminProjects />} />
           <Route path="content" element={<AdminContent />} />
           <Route path="content/homepage" element={<SimpleAdminPage />} />
@@ -79,6 +87,9 @@ function App() {
         >
           <Route index element={<DashboardHome />} />
           <Route path="documents" element={<DocumentsPage />} />
+          <Route path="referrals" element={<PartnerReferralsListPage />} />
+          <Route path="referrals/new" element={<PartnerReferralNewPage />} />
+          <Route path="referrals/:referralId" element={<PartnerReferralDetailPage />} />
           <Route path="training" element={<TrainingPage />} />
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="projects/:projectId" element={<ProjectDetailPage />} />
