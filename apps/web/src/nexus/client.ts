@@ -1,6 +1,10 @@
 import { NEXUS_SYSTEM_PROMPT } from '@/nexus/systemPrompt'
 import { buildMemoryContextBlock, type NexusMessage } from '@/nexus/memory'
 import { nexusDemoReply } from '@/nexus/demoReply'
+import {
+  buildNexusLiveContext,
+  detectMessageLang,
+} from '@/nexus/context'
 
 export type NexusChatResult = {
   content: string
@@ -28,15 +32,42 @@ export async function sendNexusMessage(opts: {
   routePath?: string
   activeProjectId?: string
   activePartnerSlug?: string
+  sessionName?: string
+  sessionEmail?: string
+  /** Prebuilt live context (optional — built here if omitted) */
+  liveContextBlock?: string
 }): Promise<NexusChatResult> {
+  const lastUser = [...opts.messages].reverse().find((m) => m.role === 'user')
+  const lang = detectMessageLang(lastUser?.content || '')
+
+  const live =
+    opts.liveContextBlock ||
+    (
+      await buildNexusLiveContext({
+        routePath: opts.routePath,
+        activeProjectId: opts.activeProjectId,
+        sessionPartnerSlug: opts.activePartnerSlug,
+        sessionName: opts.sessionName,
+        sessionEmail: opts.sessionEmail,
+      })
+    ).block
+
   const memoryBlock = buildMemoryContextBlock({
     routePath: opts.routePath,
     activeProjectId: opts.activeProjectId,
     activePartnerSlug: opts.activePartnerSlug,
   })
 
+  const langHint =
+    lang === 'en'
+      ? 'REPLY LANGUAGE: English (user wrote in English).'
+      : 'REPLY LANGUAGE: Vietnamese (default).'
+
   const apiMessages = [
-    { role: 'system' as const, content: `${NEXUS_SYSTEM_PROMPT}\n\n${memoryBlock}` },
+    {
+      role: 'system' as const,
+      content: `${NEXUS_SYSTEM_PROMPT}\n\n${langHint}\n\n${live}\n\n${memoryBlock}`,
+    },
     ...opts.messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
       .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),

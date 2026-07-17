@@ -20,8 +20,9 @@ import {
   type NexusMessage,
   type ProjectMemory,
 } from '@/nexus/memory'
+import { buildNexusLiveContext, pickNexusOpening } from '@/nexus/context'
 import { useSpeechToText, type SpeechLang } from '@/nexus/useSpeechToText'
-import { NEXUS_OPENING_VI } from '@/nexus/systemPrompt'
+import { useDemoSession } from '@/hooks/useDemoSession'
 import { cn } from '@/lib/cn'
 
 const PANEL_W = 380
@@ -41,6 +42,7 @@ type Props = {
 
 export function NexusPanel({ variant = 'portal' }: Props) {
   const location = useLocation()
+  const { session } = useDemoSession()
   const [open, setOpen] = useState(true)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -51,22 +53,43 @@ export function NexusPanel({ variant = 'portal' }: Props) {
   const [autoSendVoice, setAutoSendVoice] = useState(false)
   const [projects] = useState<ProjectMemory[]>(() => loadProjectMemories())
   const [projectId, setProjectId] = useState(() => loadProjectMemories()[0]?.projectId ?? '')
-  const [messages, setMessages] = useState<NexusMessage[]>(() => {
-    const saved = loadSessionMessages()
-    if (saved.length) return saved
-    return [
-      {
-        id: uid(),
-        role: 'assistant',
-        content: NEXUS_OPENING_VI,
-        at: now(),
-      },
-    ]
-  })
+  const [messages, setMessages] = useState<NexusMessage[]>(() => loadSessionMessages())
   const bottomRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const baseBeforeVoiceRef = useRef('')
   const sendRef = useRef<(text?: string) => Promise<void>>(async () => {})
+
+  // Inject Supabase partner/project context + conditional opening
+  useEffect(() => {
+    let cancelled = false
+    void buildNexusLiveContext({
+      routePath: location.pathname,
+      activeProjectId: projectId || undefined,
+      sessionPartnerSlug: session.partnerId || undefined,
+      sessionName: session.name || undefined,
+      sessionEmail: session.email || undefined,
+    }).then((ctx) => {
+      if (cancelled) return
+      setMessages((prev) => {
+        if (prev.length > 0) return prev
+        return [
+          {
+            id: uid(),
+            role: 'assistant',
+            content: pickNexusOpening({
+              hasActiveProject: ctx.hasActiveProject,
+              userName: ctx.userName || session.name,
+              lang: 'vi',
+            }),
+            at: now(),
+          },
+        ]
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [location.pathname, projectId, session.partnerId, session.name, session.email])
 
   const onFinalSpeech = useCallback((finalText: string) => {
     setInput(() => {
@@ -128,10 +151,23 @@ export function NexusPanel({ variant = 'portal' }: Props) {
     setLoading(true)
     setHint(null)
 
+    // Refresh live context each turn (partner + projects from Supabase)
+    const ctx = await buildNexusLiveContext({
+      routePath: location.pathname,
+      activeProjectId: projectId || undefined,
+      sessionPartnerSlug: session.partnerId || undefined,
+      sessionName: session.name || undefined,
+      sessionEmail: session.email || undefined,
+    })
+
     const result = await sendNexusMessage({
       messages: next,
       routePath: location.pathname,
       activeProjectId: projectId || undefined,
+      activePartnerSlug: session.partnerId || ctx.partnerSlug || undefined,
+      sessionName: session.name || ctx.userName,
+      sessionEmail: session.email || undefined,
+      liveContextBlock: ctx.block,
     })
 
     setMode(result.mode)
@@ -169,14 +205,26 @@ export function NexusPanel({ variant = 'portal' }: Props) {
   function clearChat() {
     if (speech.listening) speech.stop()
     clearSessionMessages()
-    setMessages([
-      {
-        id: uid(),
-        role: 'assistant',
-        content: NEXUS_OPENING_VI,
-        at: now(),
-      },
-    ])
+    void buildNexusLiveContext({
+      routePath: location.pathname,
+      activeProjectId: projectId || undefined,
+      sessionPartnerSlug: session.partnerId || undefined,
+      sessionName: session.name || undefined,
+      sessionEmail: session.email || undefined,
+    }).then((ctx) => {
+      setMessages([
+        {
+          id: uid(),
+          role: 'assistant',
+          content: pickNexusOpening({
+            hasActiveProject: ctx.hasActiveProject,
+            userName: ctx.userName || session.name,
+            lang: 'vi',
+          }),
+          at: now(),
+        },
+      ])
+    })
     setMode(null)
     setHint(null)
     setInput('')
@@ -186,14 +234,15 @@ export function NexusPanel({ variant = 'portal' }: Props) {
   const chips =
     variant === 'admin'
       ? [
-          'Tóm tắt request đang human review',
-          'Gợi ý partner cho AI strategy',
+          'Tóm tắt referral pending',
           'Bước tiếp theo project active',
+          'Khi nào handoff desk 3H',
         ]
       : [
-          'Ưu tiên engagement hôm nay',
-          'Mốc tiếp theo cần chốt',
-          'Chuẩn bị brief workshop',
+          'Giới thiệu dịch vụ 3HVN cho khách',
+          'Soạn brief referral',
+          'Map vấn đề khách → tầng dịch vụ',
+          'Mở form /portal/referrals/new',
         ]
 
   if (!open) {
@@ -258,7 +307,9 @@ export function NexusPanel({ variant = 'portal' }: Props) {
               </span>
             </div>
             <p className={cn('text-[11px]', variant === 'portal' ? 'text-cream-300/80' : 'text-white/75')}>
-              Senior strategic advisor · 3HORIZONS
+              {variant === 'portal'
+                ? 'Dịch vụ 3HVN · Referral · Engagement'
+                : 'Senior strategic advisor · 3HORIZONS'}
             </p>
             {mode ? (
               <p className="mt-0.5 text-[10px] text-white/60">
