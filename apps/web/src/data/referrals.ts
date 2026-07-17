@@ -178,16 +178,32 @@ export type CreateReferralInput = {
   customerConsent: boolean
 }
 
+/** Keep digits and leading +; allow VN formats: 090…, +84…, 84…, spaces/dashes */
+export function normalizePhone(raw: string): string {
+  const s = raw.trim()
+  if (!s) return ''
+  const hasPlus = s.startsWith('+')
+  const digits = s.replace(/\D/g, '')
+  return hasPlus ? `+${digits}` : digits
+}
+
 export function validateReferralForm(input: CreateReferralInput): string | null {
   if (!input.customerType) return 'Chọn loại khách hàng'
   if (!input.customerName.trim()) return 'Nhập tên khách hàng / doanh nghiệp'
   if (!input.contactName.trim()) return 'Nhập tên người liên hệ'
-  if (!input.contactPhone.trim()) return 'Nhập số điện thoại'
+  const phone = normalizePhone(input.contactPhone || '')
+  if (!phone) return 'Nhập số điện thoại'
+  // Soft check: at least 8 digits (after stripping), max 15 — not format-strict
+  const digitCount = phone.replace(/\D/g, '').length
+  if (digitCount < 8) return 'Số điện thoại quá ngắn (cần ít nhất 8 chữ số)'
+  if (digitCount > 15) return 'Số điện thoại quá dài'
   if (!input.serviceNeed.trim()) return 'Nhập nhu cầu dịch vụ / vấn đề'
   if (!input.readiness) return 'Chọn mức độ sẵn sàng'
   if (!input.customerConsent) return 'Cần xác nhận khách hàng đồng ý được liên hệ'
-  if (input.contactEmail?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.contactEmail.trim())) {
-    return 'Email không hợp lệ'
+  const email = input.contactEmail?.trim()
+  // Soft email: only if non-empty and clearly invalid (no @)
+  if (email && !email.includes('@')) {
+    return 'Email không hợp lệ (cần có @) — để trống nếu không có email'
   }
   if (!input.receivingEntity) return 'Chọn bên nhận (3HVN / WAMEXM)'
   return null
@@ -215,6 +231,9 @@ export async function createReferral(
 
   const prof = profile as { full_name?: string; partner_slug?: string; email?: string } | null
 
+  const phone = normalizePhone(input.contactPhone)
+  const email = input.contactEmail?.trim() || null
+
   const row = {
     referrer_user_id: user.id,
     referrer_organization: prof?.partner_slug || null,
@@ -223,8 +242,8 @@ export async function createReferral(
     customer_name: input.customerName.trim(),
     contact_name: input.contactName.trim(),
     contact_title: input.contactTitle?.trim() || null,
-    contact_email: input.contactEmail?.trim() || null,
-    contact_phone: input.contactPhone.trim(),
+    contact_email: email,
+    contact_phone: phone,
     location: input.location?.trim() || null,
     industry: input.industry?.trim() || null,
     estimated_size: input.estimatedSize?.trim() || null,
@@ -237,7 +256,19 @@ export async function createReferral(
   }
 
   const { data, error } = await sb.from('referrals').insert(row).select(SELECT).single()
-  if (error) return { referral: null, error: error.message }
+  if (error) {
+    // Surface RLS / constraint clearly
+    const msg = error.message || 'Insert failed'
+    const code = (error as { code?: string }).code
+    if (code === '42501' || /row-level security|policy/i.test(msg)) {
+      return {
+        referral: null,
+        error:
+          'Không có quyền gửi referral (RLS). Tài khoản partner cần status=active. Liên hệ admin Activate.',
+      }
+    }
+    return { referral: null, error: `${msg}${code ? ` (${code})` : ''}` }
+  }
 
   const referral = mapRow(data as unknown as DbRow)
 

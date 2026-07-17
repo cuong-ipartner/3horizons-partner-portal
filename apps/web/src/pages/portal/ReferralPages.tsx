@@ -302,15 +302,25 @@ export function PartnerReferralNewPage() {
                 onChange={(e) => setContactPhone(e.target.value)}
                 required
                 inputMode="tel"
+                autoComplete="tel"
+                placeholder="0901234567 hoặc +84901234567"
               />
+              <p className="mt-1 text-[11px] text-espresso-500">
+                Chấp nhận 0xx…, +84…, khoảng trắng/dấu gạch — tối thiểu 8 chữ số.
+              </p>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-espresso-600">Email</label>
+              <label className="mb-1 block text-xs font-medium text-espresso-600">
+                Email (tuỳ chọn)
+              </label>
               <input
                 className={field}
-                type="email"
+                type="text"
+                inputMode="email"
+                autoComplete="email"
                 value={contactEmail}
                 onChange={(e) => setContactEmail(e.target.value)}
+                placeholder="có thể để trống"
               />
             </div>
           </div>
