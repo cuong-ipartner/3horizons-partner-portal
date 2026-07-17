@@ -14,14 +14,12 @@ import {
 import { sendNexusMessage } from '@/nexus/client'
 import {
   clearSessionMessages,
-  loadProjectMemories,
   loadSessionMessages,
   saveSessionMessages,
   type NexusMessage,
-  type ProjectMemory,
 } from '@/nexus/memory'
 import { buildNexusLiveContext, pickNexusOpening } from '@/nexus/context'
-import { useSpeechToText, type SpeechLang } from '@/nexus/useSpeechToText'
+import { useSpeechToText } from '@/nexus/useSpeechToText'
 import { useDemoSession } from '@/hooks/useDemoSession'
 import { cn } from '@/lib/cn'
 
@@ -48,23 +46,16 @@ export function NexusPanel({ variant = 'portal' }: Props) {
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<'live' | 'demo' | null>(null)
   const [hint, setHint] = useState<string | null>(null)
-  // Mặc định giọng Việt Nam
-  const [speechLang, setSpeechLang] = useState<SpeechLang>('vi-VN')
-  const [autoSendVoice, setAutoSendVoice] = useState(false)
-  const [projects] = useState<ProjectMemory[]>(() => loadProjectMemories())
-  const [projectId, setProjectId] = useState(() => loadProjectMemories()[0]?.projectId ?? '')
   const [messages, setMessages] = useState<NexusMessage[]>(() => loadSessionMessages())
   const bottomRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const baseBeforeVoiceRef = useRef('')
-  const sendRef = useRef<(text?: string) => Promise<void>>(async () => {})
 
   // Inject Supabase partner/project context + conditional opening
   useEffect(() => {
     let cancelled = false
     void buildNexusLiveContext({
       routePath: location.pathname,
-      activeProjectId: projectId || undefined,
       sessionPartnerSlug: session.partnerId || undefined,
       sessionName: session.name || undefined,
       sessionEmail: session.email || undefined,
@@ -89,7 +80,7 @@ export function NexusPanel({ variant = 'portal' }: Props) {
     return () => {
       cancelled = true
     }
-  }, [location.pathname, projectId, session.partnerId, session.name, session.email])
+  }, [location.pathname, session.partnerId, session.name, session.email])
 
   const onFinalSpeech = useCallback((finalText: string) => {
     setInput(() => {
@@ -106,7 +97,7 @@ export function NexusPanel({ variant = 'portal' }: Props) {
   }, [])
 
   const speech = useSpeechToText({
-    lang: speechLang,
+    lang: 'vi-VN',
     onFinal: onFinalSpeech,
     onInterim: onInterimSpeech,
   })
@@ -122,16 +113,6 @@ export function NexusPanel({ variant = 'portal' }: Props) {
   useEffect(() => {
     if (speech.error) setHint(speech.error)
   }, [speech.error])
-
-  // When user stops listening with auto-send and has text → send
-  const wasListening = useRef(false)
-  useEffect(() => {
-    if (wasListening.current && !speech.listening && autoSendVoice) {
-      const t = input.trim()
-      if (t && !loading) void sendRef.current(t)
-    }
-    wasListening.current = speech.listening
-  }, [speech.listening, autoSendVoice, input, loading])
 
   async function send(text?: string) {
     if (speech.listening) speech.stop()
@@ -154,7 +135,6 @@ export function NexusPanel({ variant = 'portal' }: Props) {
     // Refresh live context each turn (partner + projects from Supabase)
     const ctx = await buildNexusLiveContext({
       routePath: location.pathname,
-      activeProjectId: projectId || undefined,
       sessionPartnerSlug: session.partnerId || undefined,
       sessionName: session.name || undefined,
       sessionEmail: session.email || undefined,
@@ -163,7 +143,6 @@ export function NexusPanel({ variant = 'portal' }: Props) {
     const result = await sendNexusMessage({
       messages: next,
       routePath: location.pathname,
-      activeProjectId: projectId || undefined,
       activePartnerSlug: session.partnerId || ctx.partnerSlug || undefined,
       sessionName: session.name || ctx.userName,
       sessionEmail: session.email || undefined,
@@ -185,8 +164,6 @@ export function NexusPanel({ variant = 'portal' }: Props) {
     setLoading(false)
   }
 
-  sendRef.current = send
-
   function toggleMic() {
     if (!speech.supported) {
       setHint('Trình duyệt không hỗ trợ nhận giọng nói. Dùng Chrome hoặc Edge (HTTPS/localhost).')
@@ -207,7 +184,6 @@ export function NexusPanel({ variant = 'portal' }: Props) {
     clearSessionMessages()
     void buildNexusLiveContext({
       routePath: location.pathname,
-      activeProjectId: projectId || undefined,
       sessionPartnerSlug: session.partnerId || undefined,
       sessionName: session.name || undefined,
       sessionEmail: session.email || undefined,
@@ -330,27 +306,6 @@ export function NexusPanel({ variant = 'portal' }: Props) {
           </button>
         </div>
 
-        <div className="border-b border-portal-100 bg-portal-50/80 px-3 py-2">
-          <label className="flex items-center gap-2 text-[11px] text-espresso-600">
-            <span className="shrink-0 font-medium">Project memory</span>
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="h-7 min-w-0 flex-1 rounded-lg border border-portal-200 bg-white px-2 text-[11px] outline-none"
-            >
-              <option value="">— Không gắn —</option>
-              {projects.map((p) => (
-                <option key={p.projectId} value={p.projectId}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="mt-1 text-[10px] text-espresso-500">
-            Memory: session · project · partner · global · voice STT
-          </p>
-        </div>
-
         <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
           {messages.map((m) => (
             <div
@@ -390,7 +345,7 @@ export function NexusPanel({ variant = 'portal' }: Props) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-terracotta-500 opacity-60" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-terracotta-500" />
             </span>
-            Đang nghe ({speechLang === 'vi-VN' ? 'Tiếng Việt' : 'English'})
+            Đang nghe (Tiếng Việt)
             {speech.interim ? (
               <span className="truncate text-espresso-500">· {speech.interim}</span>
             ) : (
@@ -413,30 +368,8 @@ export function NexusPanel({ variant = 'portal' }: Props) {
           ))}
         </div>
 
-        {/* Composer + mic */}
+        {/* Composer + mic (STT fixed vi-VN; send manually) */}
         <div className="border-t border-portal-100 p-3">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <select
-              value={speechLang}
-              onChange={(e) => setSpeechLang(e.target.value as SpeechLang)}
-              className="h-7 rounded-lg border border-portal-200 bg-white px-2 text-[11px] text-espresso-700 outline-none"
-              aria-label="Ngôn ngữ giọng nói"
-              title="Ngôn ngữ nhận giọng nói"
-            >
-              <option value="vi-VN">Giọng VI</option>
-              <option value="en-US">Giọng EN</option>
-            </select>
-            <label className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] text-espresso-600">
-              <input
-                type="checkbox"
-                checked={autoSendVoice}
-                onChange={(e) => setAutoSendVoice(e.target.checked)}
-                className="rounded border-portal-300"
-              />
-              Tự gửi khi dừng mic
-            </label>
-          </div>
-
           <div className="flex items-end gap-2">
             <button
               type="button"
