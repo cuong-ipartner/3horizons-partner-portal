@@ -5,6 +5,7 @@ import {
   buildNexusLiveContext,
   detectMessageLang,
 } from '@/nexus/context'
+import { getNexusGrokEnabled } from '@/lib/app-settings'
 
 export type NexusChatResult = {
   content: string
@@ -72,6 +73,17 @@ export async function sendNexusMessage(opts: {
       .filter((m) => m.role === 'user' || m.role === 'assistant')
       .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
   ]
+
+  // Admin Settings → Grok AI API off
+  const grokEnabled = await getNexusGrokEnabled()
+  if (!grokEnabled) {
+    return {
+      content: simplifyNexusText(nexusDemoReply(opts.messages, opts.routePath)),
+      mode: 'demo',
+      error:
+        'Grok AI API đang TẮT (Admin → Settings). Nexus dùng chế độ offline — bật lại để Live Grok.',
+    }
+  }
 
   try {
     const res = await fetch('/api/nexus', {
