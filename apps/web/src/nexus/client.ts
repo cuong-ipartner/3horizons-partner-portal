@@ -93,15 +93,23 @@ export async function sendNexusMessage(opts: {
     }
 
     if (!res.ok) {
-      const errText = await res.text().catch(() => res.statusText)
+      const errBody = await res.json().catch(async () => ({
+        error: await res.text().catch(() => res.statusText),
+      }))
+      const errObj = errBody as { error?: string; hint?: string; code?: string }
+      const raw = typeof errObj.error === 'string' ? errObj.error : JSON.stringify(errObj)
       const hint405 =
         res.status === 405
-          ? ' (Cloudflare: POST /api/nexus chưa vào Pages Function — check Root=apps/web, redeploy, GET /api/nexus phải trả JSON)'
+          ? ' (Cloudflare: POST /api/nexus chưa vào Pages Function — check Root=apps/web, redeploy)'
+          : ''
+      const hintXai =
+        res.status === 403 || errObj.code === 'xai_permission'
+          ? ' → xAI team/key: nạp credit + API key có quyền Chat/Grok (console.x.ai). Không phải lỗi portal.'
           : ''
       return {
         content: simplifyNexusText(nexusDemoReply(opts.messages, opts.routePath)),
         mode: 'demo',
-        error: `API error ${res.status}: ${errText.slice(0, 80)}${hint405}`,
+        error: `API error ${res.status}: ${raw.slice(0, 120)}${hintXai}${hint405}${errObj.hint ? ` | ${errObj.hint}` : ''}`,
       }
     }
 

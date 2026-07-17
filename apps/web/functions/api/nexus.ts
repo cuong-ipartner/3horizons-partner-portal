@@ -64,6 +64,21 @@ export async function onRequestPost(context: {
 
   if (!xaiRes.ok) {
     const errText = await xaiRes.text()
+    // xAI team/billing/permission issues (common on new teams)
+    if (
+      xaiRes.status === 403 ||
+      /permission-denied|newly created team|spending limit|credits|blocked/i.test(errText)
+    ) {
+      return json(
+        {
+          error: errText,
+          code: 'xai_permission',
+          hint:
+            'xAI 403: team/API key chưa có quyền hoặc hết credit. Console x.ai → Team billing/credits → tạo lại API key với Chat endpoint + model Grok → cập nhật secret XAI_API_KEY trên Cloudflare.',
+        },
+        403,
+      )
+    }
     return json({ error: errText }, xaiRes.status)
   }
 
