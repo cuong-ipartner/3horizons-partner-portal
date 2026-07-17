@@ -25,19 +25,19 @@ import {
   PortalSectionLabel,
   PortalStatusPill,
 } from '@/components/portal/PortalUi'
-import { formatFileSize } from '@/data/library-store'
 import {
-  ECOSYSTEM_LAYERS,
-  getDocumentSignedUrl,
-  listProductionDocuments,
-  trackDownload,
-  type ProductionDocument,
-} from '@/data/production-library'
+  fileTypeLabel,
+  formatFileSize,
+  getSignedDownloadUrl,
+  isPdf,
+  listDocuments,
+  type DocumentRow,
+} from '@/data/documents'
 import { milestoneProgress, usePartnerProjects, useProjectsState } from '@/data/projects-store'
 import { useDemoSession } from '@/hooks/useDemoSession'
 import { usePartnerStanding } from '@/lib/standing'
 
-/* ─── Documents ─────────────────────────────────────────── */
+/* ─── Documents (published only) ────────────────────────── */
 
 function formatDocDate(iso: string) {
   try {
@@ -52,17 +52,16 @@ function formatDocDate(iso: string) {
 }
 
 export function DocumentsPage() {
-  const [docs, setDocs] = useState<ProductionDocument[]>([])
+  const [docs, setDocs] = useState<DocumentRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [q, setQ] = useState('')
-  const [layer, setLayer] = useState('')
   const [preview, setPreview] = useState<PreviewDoc | null>(null)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    void listProductionDocuments({ q, layer }).then((res) => {
+    void listDocuments({ q, staffView: false }).then((res) => {
       if (cancelled) return
       setDocs(res.docs)
       setError(res.error)
@@ -71,57 +70,67 @@ export function DocumentsPage() {
     return () => {
       cancelled = true
     }
-  }, [q, layer])
+  }, [q])
 
-  async function openDoc(d: ProductionDocument) {
+  async function viewDoc(d: DocumentRow) {
+    if (!isPdf(d)) {
+      // Non-PDF: download only metadata modal without pdf frame
+      setPreview({
+        title: d.title,
+        type: fileTypeLabel(d),
+        tag: d.tags[0] || 'Document',
+        body: d.description
+          ? [d.description, `${d.fileName} · ${formatFileSize(d.fileSize)}`]
+          : [`${d.fileName} · ${formatFileSize(d.fileSize)}`, 'Dùng Download để tải file.'],
+        loading: false,
+        pdfUrl: null,
+      })
+      return
+    }
     setPreview({
       title: d.title,
-      type: d.docType,
-      tag: d.ecosystemLayer || d.tags[0] || 'Document',
-      body: d.summary ? [d.summary] : undefined,
+      type: 'PDF',
+      tag: d.tags[0] || 'Document',
+      body: d.description ? [d.description] : undefined,
       loading: true,
       pdfUrl: null,
     })
-    const { url, error: urlErr } = await getDocumentSignedUrl(d.storagePath)
-    if (url) await trackDownload(d)
+    const { url, error: urlErr } = await getSignedDownloadUrl(d.filePath)
     setPreview({
       title: d.title,
-      type: d.docType,
-      tag: `${d.version} · ${d.accessLevel}`,
-      body: d.summary ? [d.summary] : undefined,
+      type: 'PDF',
+      tag: formatFileSize(d.fileSize),
+      body: d.description ? [d.description] : undefined,
       loading: false,
       pdfUrl: url,
-      error: urlErr,
+      error: urlErr || undefined,
     })
+  }
+
+  async function downloadDoc(d: DocumentRow) {
+    const { url, error: urlErr } = await getSignedDownloadUrl(d.filePath)
+    if (urlErr || !url) {
+      setError(urlErr || 'Không tải được file')
+      return
+    }
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   return (
     <PortalPage>
       <PortalPageHeader
         eyebrow="Thư viện"
-        title="Tài liệu"
-        description="Tài liệu production do 3HORIZONS publish. Tìm theo tiêu đề hoặc tầng hệ sinh thái."
+        title="Documents"
+        description="Tài liệu đã publish. Tìm theo tiêu đề hoặc tags."
       />
 
       <div className="flex flex-wrap gap-2">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm tiêu đề…"
+          placeholder="Search title or tags…"
           className="h-9 min-w-[12rem] flex-1 rounded-lg border border-espresso-900/10 bg-white px-3 text-sm outline-none focus:border-gold-600/40"
         />
-        <select
-          value={layer}
-          onChange={(e) => setLayer(e.target.value)}
-          className="h-9 rounded-lg border border-espresso-900/10 bg-white px-3 text-sm"
-        >
-          <option value="">Tất cả tầng</option>
-          {ECOSYSTEM_LAYERS.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
       </div>
 
       {error ? (
@@ -138,7 +147,7 @@ export function DocumentsPage() {
       {!loading && !error && docs.length === 0 ? (
         <PortalEmpty
           title="Chưa có tài liệu"
-          body="Chưa có tài liệu được publish cho partner. Administrator sẽ upload tại /admin/library."
+          body="Chưa có tài liệu Published. 3HORIZONS sẽ publish khi sẵn sàng."
         />
       ) : null}
 
@@ -148,7 +157,7 @@ export function DocumentsPage() {
             {docs.map((d) => (
               <li
                 key={d.id}
-                className="flex items-center gap-4 px-5 py-4 transition hover:bg-cream-50 sm:px-6"
+                className="flex flex-col gap-3 px-5 py-4 transition hover:bg-cream-50 sm:flex-row sm:items-center sm:gap-4 sm:px-6"
               >
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cream-100 text-espresso-700">
                   <FileText className="h-4 w-4" strokeWidth={1.75} />
@@ -156,15 +165,19 @@ export function DocumentsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-espresso-900">{d.title}</p>
                   <p className="mt-0.5 text-[11px] text-espresso-500">
-                    {d.docType} · v{d.version} · {formatFileSize(d.fileSize)} ·{' '}
-                    {formatDocDate(d.updatedAt)}
-                    {d.ecosystemLayer ? ` · ${d.ecosystemLayer}` : ''}
+                    {fileTypeLabel(d)} · {formatFileSize(d.fileSize)} · {formatDocDate(d.updatedAt)}
                   </p>
-                  {d.summary ? (
-                    <p className="mt-1 line-clamp-1 text-xs text-espresso-500">{d.summary}</p>
+                  {d.description ? (
+                    <p className="mt-1 line-clamp-2 text-xs text-espresso-500">{d.description}</p>
+                  ) : null}
+                  {d.tags.length ? (
+                    <p className="mt-1 text-[11px] text-portal-700">{d.tags.join(' · ')}</p>
                   ) : null}
                 </div>
-                <PortalGhostBtn onClick={() => void openDoc(d)}>Tải / Xem</PortalGhostBtn>
+                <div className="flex flex-wrap gap-2">
+                  <PortalGhostBtn onClick={() => void viewDoc(d)}>View</PortalGhostBtn>
+                  <PortalGhostBtn onClick={() => void downloadDoc(d)}>Download</PortalGhostBtn>
+                </div>
               </li>
             ))}
           </ul>

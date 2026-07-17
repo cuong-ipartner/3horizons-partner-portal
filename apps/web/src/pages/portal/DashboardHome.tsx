@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, BadgeCheck, FileText } from 'lucide-react'
-import { listProductionDocuments, type ProductionDocument } from '@/data/production-library'
+import { listDocuments, type DocumentRow } from '@/data/documents'
 import { milestoneProgress, usePartnerProjects } from '@/data/projects-store'
 import { useDemoSession } from '@/hooks/useDemoSession'
 import { buildDecisionsFromProjects, computeDayPriority } from '@/lib/priority'
@@ -33,10 +33,10 @@ export function DashboardHome() {
   const nextMilestone = primary?.milestones.find((m) => !m.done)
   const priority = computeDayPriority(myProjects)
   const decisions = buildDecisionsFromProjects(myProjects)
-  const [recentDocs, setRecentDocs] = useState<ProductionDocument[]>([])
+  const [recentDocs, setRecentDocs] = useState<DocumentRow[]>([])
 
   useEffect(() => {
-    void listProductionDocuments({}).then((res) => {
+    void listDocuments({ staffView: false }).then((res) => {
       setRecentDocs(res.docs.slice(0, 5))
     })
   }, [])
@@ -240,8 +240,7 @@ export function DashboardHome() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-espresso-900">{d.title}</p>
                   <p className="text-[11px] text-espresso-500">
-                    v{d.version}
-                    {d.ecosystemLayer ? ` · ${d.ecosystemLayer}` : ''}
+                    {d.tags.slice(0, 2).join(' · ') || 'Document'}
                   </p>
                 </div>
               </li>

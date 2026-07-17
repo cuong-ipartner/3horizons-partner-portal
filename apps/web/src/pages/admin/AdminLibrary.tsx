@@ -10,41 +10,41 @@ import {
   fieldClass,
 } from '@/components/admin/AdminUi'
 import {
-  ECOSYSTEM_LAYERS,
-  SERVICE_LINES,
   deleteDocument,
-  listProductionDocuments,
+  formatFileSize,
+  getSignedDownloadUrl,
+  listDocuments,
+  parseTags,
   setDocumentStatus,
-  uploadProductionDocument,
-  type DocAccess,
+  updateDocumentMeta,
+  uploadDocument,
   type DocStatus,
-  type ProductionDocument,
-} from '@/data/production-library'
-import { formatFileSize } from '@/data/library-store'
+  type DocumentRow,
+} from '@/data/documents'
 import { isSupabaseAuthEnabled } from '@/lib/supabase'
-import { Link } from 'react-router-dom'
 
 export function AdminLibrary() {
-  const [docs, setDocs] = useState<ProductionDocument[]>([])
+  const [docs, setDocs] = useState<DocumentRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [q, setQ] = useState('')
-  const [status, setStatus] = useState<DocStatus | ''>('')
-  const [layer, setLayer] = useState('')
+  const [statusFilter, setStatusFilter] = useState<DocStatus | ''>('')
+
+  const [showUpload, setShowUpload] = useState(false)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [tags, setTags] = useState('')
+  const [status, setStatus] = useState<DocStatus>('draft')
+  const [file, setFile] = useState<File | null>(null)
+  const [progress, setProgress] = useState(0)
+  const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [title, setTitle] = useState('')
-  const [docType, setDocType] = useState('PDF')
-  const [ecosystemLayer, setEcosystemLayer] = useState(ECOSYSTEM_LAYERS[0])
-  const [serviceLine, setServiceLine] = useState(SERVICE_LINES[0])
-  const [tags, setTags] = useState('')
-  const [version, setVersion] = useState('1.0')
-  const [accessLevel, setAccessLevel] = useState<DocAccess>('partner')
-  const [docStatus, setDocStatus] = useState<DocStatus>('draft')
-  const [summary, setSummary] = useState('')
-  const [file, setFile] = useState<File | null>(null)
-  const [replaceId, setReplaceId] = useState<string | null>(null)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+  const [editTags, setEditTags] = useState('')
 
   function flash(m: string) {
     setToast(m)
@@ -53,85 +53,125 @@ export function AdminLibrary() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await listProductionDocuments(
-      { q, status, layer, includeArchived: true },
-      { staffView: true },
-    )
+    const res = await listDocuments({
+      q,
+      status: statusFilter,
+      staffView: true,
+    })
     setLoading(false)
     setError(res.error)
     setDocs(res.docs)
-  }, [q, status, layer])
+  }, [q, statusFilter])
 
   useEffect(() => {
     void load()
   }, [load])
 
+  function resetForm() {
+    setTitle('')
+    setDescription('')
+    setTags('')
+    setStatus('draft')
+    setFile(null)
+    setProgress(0)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  function onPickFile(f: File | null) {
+    setFile(f)
+    if (f && !title.trim()) {
+      setTitle(f.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' '))
+    }
+  }
+
   async function onUpload(e: FormEvent) {
     e.preventDefault()
     if (!file || !title.trim()) {
-      flash('Chọn file và nhập tiêu đề')
+      flash('Title và file là bắt buộc')
       return
     }
-    const res = await uploadProductionDocument(file, {
-      title,
-      docType,
-      ecosystemLayer,
-      serviceLine,
-      tags: tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
-      version,
-      status: docStatus,
-      accessLevel,
-      summary,
-      replaceDocumentId: replaceId || undefined,
-    })
+    setUploading(true)
+    setProgress(5)
+    const res = await uploadDocument(
+      {
+        file,
+        title,
+        description,
+        tags: parseTags(tags),
+        status,
+      },
+      (p) => setProgress(p),
+    )
+    setUploading(false)
     if (res.error) {
       flash(res.error)
       return
     }
-    flash(replaceId ? 'Đã thay version mới' : 'Đã upload')
-    setTitle('')
-    setSummary('')
-    setTags('')
-    setFile(null)
-    setReplaceId(null)
-    if (fileRef.current) fileRef.current.value = ''
+    flash('Upload thành công')
+    resetForm()
+    setShowUpload(false)
     void load()
   }
 
-  const supabaseOn = isSupabaseAuthEnabled()
+  async function onDownload(d: DocumentRow) {
+    const { url, error: err } = await getSignedDownloadUrl(d.filePath)
+    if (err || !url) {
+      flash(err || 'Không tạo được link tải')
+      return
+    }
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  async function onToggleStatus(d: DocumentRow) {
+    const next: DocStatus = d.status === 'published' ? 'draft' : 'published'
+    const err = await setDocumentStatus(d.id, next)
+    flash(err || (next === 'published' ? 'Published' : 'Unpublished (draft)'))
+    void load()
+  }
+
+  async function onDelete(d: DocumentRow) {
+    if (!window.confirm(`Xóa “${d.title}”? File sẽ bị gỡ khỏi storage.`)) return
+    const err = await deleteDocument(d.id, d.filePath)
+    flash(err || 'Đã xóa')
+    void load()
+  }
+
+  async function onSaveEdit(e: FormEvent) {
+    e.preventDefault()
+    if (!editId || !editTitle.trim()) return
+    const err = await updateDocumentMeta(editId, {
+      title: editTitle,
+      description: editDesc.trim() || null,
+      tags: parseTags(editTags),
+    })
+    flash(err || 'Đã lưu')
+    setEditId(null)
+    void load()
+  }
 
   return (
     <div className="mx-auto max-w-7xl">
       <AdminPageHeader
-        title="Thư viện tài liệu"
-        description="Upload · version · publish / unpublish / archive / delete. Partner xem file đã publish tại /portal/documents (signed URL)."
+        title="Documents"
+        description="Upload đơn giản. Partner chỉ thấy tài liệu Published."
+        actions={
+          <ActionBtn
+            variant="primary"
+            onClick={() => {
+              setShowUpload((v) => !v)
+              setEditId(null)
+            }}
+          >
+            {showUpload ? 'Đóng form' : 'Upload document'}
+          </ActionBtn>
+        }
       />
 
-      <div className="mb-4 rounded-2xl border border-portal-200 bg-white px-4 py-3 text-xs text-espresso-600 shadow-sm">
-        <p className="font-medium text-espresso-900">
-          Storage: bucket <code className="font-mono">partner-library</code> · metadata{' '}
-          <code className="font-mono">library_documents</code>
-        </p>
-        <p className="mt-1">
-          {supabaseOn
-            ? 'Supabase: đã cấu hình — upload & tải storage hoạt động khi đăng nhập staff.'
-            : 'Supabase: thiếu VITE_SUPABASE_* trên Cloudflare build — set env Production rồi redeploy.'}
-        </p>
-        <p className="mt-1">
-          Đăng nhập admin:{' '}
-          <Link to="/admin/login" className="font-medium text-portal-700 hover:underline">
-            /admin/login
-          </Link>
-          {' · '}
-          Portal partner:{' '}
-          <Link to="/portal/documents" className="font-medium text-portal-700 hover:underline">
-            /portal/documents
-          </Link>
-        </p>
-      </div>
+      {!isSupabaseAuthEnabled() ? (
+        <div className="mb-4 rounded-xl border border-terracotta-500/30 bg-terracotta-500/5 px-4 py-2 text-sm text-terracotta-600">
+          Supabase chưa cấu hình trên bản build (VITE_SUPABASE_*).
+        </div>
+      ) : null}
 
       {error ? (
         <div className="mb-4 rounded-xl border border-terracotta-500/30 bg-terracotta-500/5 px-4 py-2 text-sm text-terracotta-600">
@@ -144,143 +184,150 @@ export function AdminLibrary() {
         </div>
       ) : null}
 
-      <form
-        onSubmit={(e) => void onUpload(e)}
-        className="mb-6 grid gap-3 rounded-2xl border border-portal-200 bg-white p-5 shadow-sm lg:grid-cols-3"
-      >
-        <p className="text-sm font-semibold text-espresso-900 lg:col-span-3">
-          {replaceId ? `Replace version — ${replaceId.slice(0, 8)}…` : 'Upload document'}
-        </p>
-        <input
-          className={fieldClass() + ' w-full lg:col-span-2'}
-          placeholder="Title *"
-          required
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <select className={fieldClass() + ' w-full'} value={docType} onChange={(e) => setDocType(e.target.value)}>
-          <option>PDF</option>
-          <option>DOCX</option>
-          <option>XLSX</option>
-          <option>PPTX</option>
-        </select>
-        <select
-          className={fieldClass() + ' w-full'}
-          value={ecosystemLayer}
-          onChange={(e) => setEcosystemLayer(e.target.value)}
+      {showUpload ? (
+        <form
+          onSubmit={(e) => void onUpload(e)}
+          className="mb-6 space-y-4 rounded-2xl border border-portal-200 bg-white p-5 shadow-sm"
         >
-          {ECOSYSTEM_LAYERS.map((l) => (
-            <option key={l}>{l}</option>
-          ))}
-        </select>
-        <select
-          className={fieldClass() + ' w-full'}
-          value={serviceLine}
-          onChange={(e) => setServiceLine(e.target.value)}
-        >
-          {SERVICE_LINES.map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </select>
-        <input
-          className={fieldClass() + ' w-full'}
-          placeholder="Tags (comma-separated)"
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-        />
-        <input
-          className={fieldClass() + ' w-full'}
-          placeholder="Version"
-          value={version}
-          onChange={(e) => setVersion(e.target.value)}
-        />
-        <select
-          className={fieldClass() + ' w-full'}
-          value={docStatus}
-          onChange={(e) => setDocStatus(e.target.value as DocStatus)}
-        >
-          <option value="draft">draft</option>
-          <option value="published">published</option>
-          <option value="archived">archived</option>
-        </select>
-        <select
-          className={fieldClass() + ' w-full'}
-          value={accessLevel}
-          onChange={(e) => setAccessLevel(e.target.value as DocAccess)}
-        >
-          <option value="partner">partner</option>
-          <option value="staff">staff</option>
-          <option value="authenticated">authenticated</option>
-          <option value="public">public</option>
-        </select>
-        <input
-          className={fieldClass() + ' w-full lg:col-span-2'}
-          placeholder="Summary"
-          value={summary}
-          onChange={(e) => setSummary(e.target.value)}
-        />
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,application/pdf"
-          className="text-sm lg:col-span-3"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        />
-        <div className="flex flex-wrap gap-2 lg:col-span-3">
-          <ActionBtn variant="primary" type="submit">
-            {replaceId ? 'Upload version mới' : 'Upload'}
-          </ActionBtn>
-          {replaceId ? (
-            <ActionBtn type="button" onClick={() => setReplaceId(null)}>
-              Hủy replace
-            </ActionBtn>
+          <p className="text-sm font-semibold text-espresso-900">Upload document</p>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-espresso-600">Title *</label>
+            <input
+              className={fieldClass() + ' w-full'}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              placeholder="Document title"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-espresso-600">File *</label>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+              className="text-sm"
+              required
+              onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+            />
+            <p className="mt-1 text-[11px] text-espresso-500">
+              PDF, DOCX, XLSX, PPTX, PNG, JPG · tối đa 25 MB
+            </p>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-espresso-600">
+              Description (optional)
+            </label>
+            <textarea
+              className={fieldClass() + ' min-h-[4.5rem] w-full py-2'}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Short description"
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-espresso-600">
+                Tags (optional, comma-separated)
+              </label>
+              <input
+                className={fieldClass() + ' w-full'}
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="onboarding, policy"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-espresso-600">Status</label>
+              <select
+                className={fieldClass() + ' w-full'}
+                value={status}
+                onChange={(e) => setStatus(e.target.value as DocStatus)}
+              >
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+              </select>
+            </div>
+          </div>
+          {uploading ? (
+            <div className="h-2 overflow-hidden rounded-full bg-portal-100">
+              <div
+                className="h-full bg-portal-700 transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
           ) : null}
-          <Link to="/portal/documents" className="self-center text-xs font-medium text-portal-700">
-            Xem góc partner →
-          </Link>
-          <Link to="/admin/settings" className="self-center text-xs font-medium text-espresso-500">
-            Cleanup storage (Settings)
-          </Link>
-        </div>
-      </form>
+          <div className="flex flex-wrap gap-2">
+            <ActionBtn type="button" onClick={() => { resetForm(); setShowUpload(false) }}>
+              Cancel
+            </ActionBtn>
+            <ActionBtn variant="primary" type="submit">
+              {uploading ? `Uploading… ${progress}%` : 'Upload'}
+            </ActionBtn>
+          </div>
+        </form>
+      ) : null}
+
+      {editId ? (
+        <form
+          onSubmit={(e) => void onSaveEdit(e)}
+          className="mb-6 space-y-3 rounded-2xl border border-portal-200 bg-white p-5 shadow-sm"
+        >
+          <p className="text-sm font-semibold text-espresso-900">Edit document</p>
+          <input
+            className={fieldClass() + ' w-full'}
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            required
+          />
+          <textarea
+            className={fieldClass() + ' min-h-[4rem] w-full py-2'}
+            value={editDesc}
+            onChange={(e) => setEditDesc(e.target.value)}
+          />
+          <input
+            className={fieldClass() + ' w-full'}
+            value={editTags}
+            onChange={(e) => setEditTags(e.target.value)}
+            placeholder="Tags"
+          />
+          <div className="flex gap-2">
+            <ActionBtn type="button" onClick={() => setEditId(null)}>
+              Cancel
+            </ActionBtn>
+            <ActionBtn variant="primary" type="submit">
+              Save
+            </ActionBtn>
+          </div>
+        </form>
+      ) : null}
 
       <FilterBar>
         <input
-          className={fieldClass()}
-          placeholder="Search title"
+          className={fieldClass() + ' min-w-[12rem] flex-1'}
+          placeholder="Search title…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <select
           className={fieldClass()}
-          value={status}
-          onChange={(e) => setStatus(e.target.value as DocStatus | '')}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as DocStatus | '')}
         >
           <option value="">All status</option>
-          <option value="draft">draft</option>
-          <option value="published">published</option>
-          <option value="archived">archived</option>
+          <option value="draft">Draft</option>
+          <option value="published">Published</option>
         </select>
-        <select className={fieldClass()} value={layer} onChange={(e) => setLayer(e.target.value)}>
-          <option value="">All layers</option>
-          {ECOSYSTEM_LAYERS.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
-        <ActionBtn onClick={() => void load()}>{loading ? '…' : 'Apply'}</ActionBtn>
+        <ActionBtn onClick={() => void load()}>{loading ? '…' : 'Refresh'}</ActionBtn>
       </FilterBar>
 
       <AdminTable>
         <thead>
           <tr>
             <Th>Document</Th>
-            <Th>Layer / Service</Th>
-            <Th>Ver</Th>
-            <Th>Access</Th>
+            <Th>Tags</Th>
             <Th>Status</Th>
-            <Th>Downloads</Th>
+            <Th>Updated</Th>
             <Th />
           </tr>
         </thead>
@@ -290,89 +337,39 @@ export function AdminLibrary() {
               <Td>
                 <p className="font-medium text-espresso-900">{d.title}</p>
                 <p className="text-[11px] text-espresso-500">
-                  {d.docType} · {formatFileSize(d.fileSize)} · {d.ownerName || '—'} ·{' '}
-                  {new Date(d.updatedAt).toLocaleDateString('vi-VN')}
+                  {d.fileName} · {formatFileSize(d.fileSize)}
                 </p>
-                {d.tags.length ? (
-                  <p className="mt-0.5 text-[10px] text-portal-600">{d.tags.join(' · ')}</p>
+                {d.description ? (
+                  <p className="mt-0.5 line-clamp-1 text-xs text-espresso-500">{d.description}</p>
                 ) : null}
               </Td>
-              <Td className="text-xs">
-                <div>{d.ecosystemLayer || '—'}</div>
-                <div className="text-espresso-500">{d.serviceLine || '—'}</div>
+              <Td className="text-xs text-portal-700">
+                {d.tags.length ? d.tags.join(', ') : '—'}
               </Td>
-              <Td className="text-xs font-mono">{d.version}</Td>
-              <Td className="text-xs">{d.accessLevel}</Td>
               <Td>
-                <AdminBadge
-                  tone={
-                    d.status === 'published' ? 'ok' : d.status === 'archived' ? 'neutral' : 'warn'
-                  }
-                >
-                  {d.status}
-                </AdminBadge>
+                <AdminBadge tone={d.status === 'published' ? 'ok' : 'warn'}>{d.status}</AdminBadge>
               </Td>
-              <Td className="text-xs tabular-nums">{d.downloadCount}</Td>
+              <Td className="text-xs text-espresso-500">
+                {new Date(d.updatedAt).toLocaleString('vi-VN')}
+              </Td>
               <Td>
                 <div className="flex flex-wrap gap-1">
-                  {d.status !== 'published' ? (
-                    <ActionBtn
-                      onClick={() =>
-                        void setDocumentStatus(d.id, 'published').then((e) => {
-                          flash(e || 'Published')
-                          void load()
-                        })
-                      }
-                    >
-                      Publish
-                    </ActionBtn>
-                  ) : (
-                    <ActionBtn
-                      onClick={() =>
-                        void setDocumentStatus(d.id, 'draft').then((e) => {
-                          flash(e || 'Unpublished')
-                          void load()
-                        })
-                      }
-                    >
-                      Unpublish
-                    </ActionBtn>
-                  )}
-                  <ActionBtn
-                    onClick={() =>
-                      void setDocumentStatus(d.id, 'archived').then((e) => {
-                        flash(e || 'Archived')
-                        void load()
-                      })
-                    }
-                  >
-                    Archive
-                  </ActionBtn>
+                  <ActionBtn onClick={() => void onDownload(d)}>Download</ActionBtn>
                   <ActionBtn
                     onClick={() => {
-                      setReplaceId(d.id)
-                      setTitle(d.title)
-                      setVersion(`${d.versionNumber + 1}.0`)
-                      setEcosystemLayer(d.ecosystemLayer || ECOSYSTEM_LAYERS[0])
-                      setServiceLine(d.serviceLine || SERVICE_LINES[0])
-                      setTags(d.tags.join(', '))
-                      setAccessLevel(d.accessLevel)
-                      setDocStatus(d.status)
-                      setSummary(d.summary || '')
-                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                      setEditId(d.id)
+                      setEditTitle(d.title)
+                      setEditDesc(d.description || '')
+                      setEditTags(d.tags.join(', '))
+                      setShowUpload(false)
                     }}
                   >
-                    Replace
+                    Edit
                   </ActionBtn>
-                  <ActionBtn
-                    variant="danger"
-                    onClick={() =>
-                      void deleteDocument(d.id, d.storagePath).then((e) => {
-                        flash(e || 'Deleted')
-                        void load()
-                      })
-                    }
-                  >
+                  <ActionBtn onClick={() => void onToggleStatus(d)}>
+                    {d.status === 'published' ? 'Unpublish' : 'Publish'}
+                  </ActionBtn>
+                  <ActionBtn variant="danger" onClick={() => void onDelete(d)}>
                     Delete
                   </ActionBtn>
                 </div>
@@ -381,9 +378,7 @@ export function AdminLibrary() {
           ))}
           {!docs.length && !loading ? (
             <tr>
-              <Td className="text-sm text-espresso-500">
-                Chưa có tài liệu — upload file production đầu tiên (không seed demo).
-              </Td>
+              <Td className="text-sm text-espresso-500">Chưa có tài liệu. Upload file đầu tiên.</Td>
             </tr>
           ) : null}
         </tbody>

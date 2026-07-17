@@ -10,7 +10,7 @@ import {
   Td,
   Th,
 } from '@/components/admin/AdminUi'
-import { listProductionDocuments } from '@/data/production-library'
+import { listDocuments } from '@/data/documents'
 import { useProjectsState } from '@/data/projects-store'
 import { getSupabase, isSupabaseAuthEnabled } from '@/lib/supabase'
 import { adminApi } from '@/lib/production-auth'
@@ -34,7 +34,7 @@ export function AdminDashboard() {
       setAppsPending(0)
     }
 
-    void listProductionDocuments({}, { staffView: true }).then((res) => {
+    void listDocuments({ staffView: true }).then((res) => {
       setDocCount(res.docs.length)
     })
 
